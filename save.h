@@ -9,6 +9,8 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+#include "text.h"
+
 typedef struct TextSave TextSave;
 
 /**
@@ -100,16 +102,6 @@ bool text_save_commit(TextSave*);
  * @endrst
  */
 void text_save_cancel(TextSave*);
-/**
- * Write whole text content to file descriptor.
- * @return The number of bytes written or ``-1`` in case of an error.
- */
-ssize_t text_write(Text*, int fd);
-/**
- * Write file range to file descriptor.
- * @return The number of bytes written or ``-1`` in case of an error.
- */
-ssize_t text_write_range(Text*, Filerange*, int fd);
 /** @} */
 
 #endif

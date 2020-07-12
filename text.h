@@ -156,6 +156,17 @@ bool text_delete_range(Text*, Filerange*);
 bool text_printf(Text*, size_t pos, const char *format, ...) __attribute__((format(printf, 3, 4)));
 bool text_appendf(Text*, const char *format, ...) __attribute__((format(printf, 2, 3)));
 /**
+ * Write whole text content to file descriptor.
+ * @return The number of bytes written or ``-1`` in case of an error.
+ */
+ssize_t text_write(Text*, int fd);
+/**
+ * Write file range to file descriptor.
+ * @return The number of bytes written or ``-1`` in case of an error.
+ */
+ssize_t text_write_range(Text*, Filerange*, int fd);
+
+/**
  * @}
  * @defgroup history
  * @{
