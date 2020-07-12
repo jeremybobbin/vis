@@ -94,7 +94,7 @@ enum TextLoadMethod {
  * .. note:: Equivalent to ``text_load_method(filename, TEXT_LOAD_AUTO)``.
  * @endrst
  */
-Text *text_load(const char *filename);
+Text *text_load(const int fd, size_t size);
 /**
  * Create a text instance populated with the given file content.
  *
@@ -108,7 +108,7 @@ Text *text_load(const char *filename);
  *    - ``ENOTSUP`` otherwise.
  * @endrst
  */
-Text *text_load_method(const char *filename, enum TextLoadMethod);
+Text *text_load_method(const int fd, size_t size, enum TextLoadMethod);
 /** Release all ressources associated with this text instance. */
 void text_free(Text*);
 /**
@@ -118,17 +118,6 @@ void text_free(Text*);
  */
 /** Return the size in bytes of the whole text. */
 size_t text_size(Text*);
-/**
- * Get file information at time of load or last save, whichever happened more
- * recently.
- * @rst
- * .. note:: If an empty text instance was created using ``text_load(NULL)``
- *           and it has not yet been saved, an all zero ``struct stat`` will
- *           be returned.
- * @endrst
- * @return See ``stat(2)`` for details.
- */
-struct stat text_stat(Text*);
 /** Query whether the text contains any unsaved modifications. */
 bool text_modified(Text*);
 /**

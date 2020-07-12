@@ -130,22 +130,6 @@ static void file_free(Vis *vis, File *file) {
 	free(file);
 }
 
-static File *file_new_text(Vis *vis, Text *text) {
-	File *file = calloc(1, sizeof(*file));
-	if (!file)
-		return NULL;
-	file->fd = -1;
-	file->text = text;
-	file->stat = text_stat(text);
-	for (size_t i = 0; i < LENGTH(file->marks); i++)
-		mark_init(&file->marks[i]);
-	if (vis->files)
-		vis->files->prev = file;
-	file->next = vis->files;
-	vis->files = file;
-	return file;
-}
-
 char *absolute_path(const char *name) {
 	if (!name)
 		return NULL;
@@ -174,15 +158,25 @@ err:
 }
 
 static File *file_new(Vis *vis, const char *name) {
+	int fd = -1;
+	struct stat stat;
 	char *name_absolute = NULL;
 	if (name) {
 		if (!(name_absolute = absolute_path(name)))
 			return NULL;
+		if (lstat(name_absolute, &stat) == -1)
+			goto err;
+		if ((fd = open(name_absolute, O_RDONLY)) == -1)
+			goto err;
+		if (!S_ISREG(stat.st_mode)) {
+			errno = S_ISDIR(stat.st_mode) ? EISDIR : ENOTSUP;
+			goto err;
+		}
 		File *existing = NULL;
 		/* try to detect whether the same file is already open in another window
 		 * TODO: do this based on inodes */
 		for (File *file = vis->files; file; file = file->next) {
-			if (file->name && strcmp(file->name, name_absolute) == 0) {
+			if (file->name && file->stat.st_ino == stat.st_ino) {
 				existing = file;
 				break;
 			}
@@ -193,20 +187,24 @@ static File *file_new(Vis *vis, const char *name) {
 		}
 	}
 
-	File *file = NULL;
-	Text *text = text_load_method(name, vis->load_method);
-	if (!text && name && errno == ENOENT)
-		text = text_load(NULL);
-	if (!text)
+	File *file = calloc(1, sizeof(*file));
+	if (!file)
 		goto err;
-	if (!(file = file_new_text(vis, text)))
+	file->text = text_load_method(fd, stat.st_size, vis->load_method);
+	if (!file->text)
 		goto err;
+	file->fd = fd;
 	file->name = name_absolute;
+	for (size_t i = 0; i < LENGTH(file->marks); i++) 
+		mark_init(&file->marks[i]); 
+	if (vis->files) 
+		vis->files->prev = file; 
+	file->next = vis->files; 
+	vis->files = file; 
 	vis_event_emit(vis, VIS_EVENT_FILE_OPEN, file);
 	return file;
 err:
 	free(name_absolute);
-	text_free(text);
 	file_free(vis, file);
 	return NULL;
 }

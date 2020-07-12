@@ -1112,13 +1112,11 @@ ssize_t text_write_range(Text *txt, Filerange *range, int fd) {
 	return size - rem;
 }
 
-Text *text_load(const char *filename) {
-	return text_load_method(filename, TEXT_LOAD_AUTO);
+Text *text_load(const int fd, size_t size) {
+	return text_load_method(fd, size, TEXT_LOAD_AUTO);
 }
 
-Text *text_load_method(const char *filename, enum TextLoadMethod method) {
-	int fd = -1;
-	size_t size = 0;
+Text *text_load_method(const int fd, size_t size, enum TextLoadMethod method) {
 	Text *txt = calloc(1, sizeof *txt);
 	if (!txt)
 		return NULL;
@@ -1126,26 +1124,15 @@ Text *text_load_method(const char *filename, enum TextLoadMethod method) {
 	if (!p)
 		goto out;
 	lineno_cache_invalidate(&txt->lines);
-	if (filename) {
-		if ((fd = open(filename, O_RDONLY)) == -1)
+	/* maybe should be (fd > 2) instead? */
+	if (fd >= 0 && size > 0) {
+		if (method == TEXT_LOAD_READ || (method == TEXT_LOAD_AUTO && size < BLOCK_MMAP_SIZE))
+			txt->block = block_read(txt, size, fd);
+		else
+			txt->block = block_mmap(txt, size, fd, 0);
+		if (!txt->block)
 			goto out;
-		if (fstat(fd, &txt->info) == -1)
-			goto out;
-		if (!S_ISREG(txt->info.st_mode)) {
-			errno = S_ISDIR(txt->info.st_mode) ? EISDIR : ENOTSUP;
-			goto out;
-		}
-		// XXX: use lseek(fd, 0, SEEK_END); instead?
-		size = txt->info.st_size;
-		if (size > 0) {
-			if (method == TEXT_LOAD_READ || (method == TEXT_LOAD_AUTO && size < BLOCK_MMAP_SIZE))
-				txt->block = block_read(txt, size, fd);
-			else
-				txt->block = block_mmap(txt, size, fd, 0);
-			if (!txt->block)
-				goto out;
-			piece_init(p, &txt->begin, &txt->end, txt->block->data, txt->block->len);
-		}
+		piece_init(p, &txt->begin, &txt->end, txt->block->data, txt->block->len);
 	}
 
 	if (size == 0)
