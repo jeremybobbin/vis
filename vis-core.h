@@ -7,6 +7,7 @@
 #include "vis-lua.h"
 #include "text.h"
 #include "text-util.h"
+#include "save.h"
 #include "map.h"
 #include "array.h"
 #include "buffer.h"

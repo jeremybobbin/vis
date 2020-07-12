@@ -22,6 +22,7 @@
 #include <selinux/selinux.h>
 #endif
 
+#include "save.h"
 #include "text.h"
 #include "text-util.h"
 #include "text-motions.h"

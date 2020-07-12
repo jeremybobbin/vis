@@ -30,6 +30,7 @@
 #include "text-motions.h"
 #include "text-objects.h"
 #include "text-regex.h"
+#include "save.h"
 #include "util.h"
 
 #define MAX_ARGV 8
