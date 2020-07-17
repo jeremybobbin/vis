@@ -959,8 +959,10 @@ void vis_do(Vis *vis) {
 					r.start--;
 					r.end++;
 				}
-
-				if (vis->mode->visual || (i > 0 && !(a->textobj->type & TEXTOBJECT_NON_CONTIGUOUS)))
+				if ((vis->mode->visual &&
+					(a->textobj->type & TEXTOBJECT_DELIMITED_INNER) &&
+					(pos != r.start-1 && pos != r.end || c.range.start+1 != c.range.end)) ||
+					(i > 0 && !(a->textobj->type & TEXTOBJECT_NON_CONTIGUOUS)))
 					c.range = text_range_union(&c.range, &r);
 				else
 					c.range = r;
