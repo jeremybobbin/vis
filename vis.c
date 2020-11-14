@@ -1376,7 +1376,8 @@ int vis_run(Vis *vis) {
 			vis_die(vis, "Killed by SIGTERM\n");
 		if (vis->interrupted) {
 			vis->interrupted = false;
-			vis_keys_feed(vis, "<C-c>");
+			vis_keys_push(vis, "<C-c>", 0, true);
+			continue;
 		}
 
 		if (vis->resume) {
