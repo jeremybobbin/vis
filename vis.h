@@ -144,7 +144,7 @@ void vis_suspend(Vis*);
  */
 void vis_resume(Vis*);
 /**
- * Inform the editor core that a signal occured.
+ * Inform the editor core that a signal occurred.
  * @return Whether the signal was handled.
  * @rst
  * .. note:: Being designed as a library the editor core does *not* register any
@@ -422,7 +422,7 @@ int vis_operator_register(Vis*, VisOperatorFunction*, void *context);
  *  - A visual mode is active.
  *  - The same operator was already set (range will be the current line).
  *
- * Otherwise the operator will be executed on the range determinded by:
+ * Otherwise the operator will be executed on the range determined by:
  *  - A motion (see `vis_motion`).
  *  - A text object (`vis_textobject`).
  *
@@ -594,7 +594,7 @@ VisCountIterator vis_count_iterator_init(Vis*, int count);
  * Increment iterator counter.
  * @return Whether iteration should continue.
  * @rst
- * .. note:: Terminates iteration if the edtior was
+ * .. note:: Terminates iteration if the editor was
  *           `interrupted <vis_interrupt>`_ in the meantime.
  * @endrst
  */
