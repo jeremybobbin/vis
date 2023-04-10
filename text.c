@@ -28,12 +28,12 @@
  * operations.
  */
 struct Piece {
-	Text *text;             /* text to which this piece belongs */
-	Piece *left, *right;    /* pointers to the logical predecessor/successor */
-	Piece *global_prev;     /* double linked list in order of allocation, */
-	Piece *global_next;     /* used to free individual pieces */
-	const char *data;       /* pointer into a Block holding the data */
-	size_t len;             /* the length in number of bytes of the data */
+	Text *text;                    /* text to which this piece belongs */
+	Piece *left, *right, *parent;  /* pointers to the logical predecessor/successor */
+	Piece *global_prev;            /* double linked list in order of allocation, */
+	Piece *global_next;            /* used to free individual pieces */
+	const char *data;              /* pointer into a Block holding the data */
+	size_t len;                    /* the length in number of bytes of the data */
 };
 
 /* used to transform a global position (byte offset starting from the beginning
@@ -106,7 +106,9 @@ static bool cache_delete(Text *txt, Piece *p, size_t off, size_t len);
 /* piece management */
 static Piece *piece_alloc(Text *txt);
 static void piece_free(Piece *p);
-static void piece_init(Piece *p, Piece *prev, Piece *next, const char *data, size_t len);
+static void piece_init(Piece *p, Piece *parent, Piece *left, Piece *right, const char *data, size_t len);
+static Piece *piece_next(Piece *p);
+static Piece *piece_prev(Piece *p);
 static Location piece_get_intern(Text *txt, size_t pos);
 static Location piece_get_extern(const Text *txt, size_t pos);
 /* span management */
@@ -309,11 +311,51 @@ static void piece_free(Piece *p) {
 	free(p);
 }
 
-static void piece_init(Piece *p, Piece *prev, Piece *next, const char *data, size_t len) {
-	p->left = prev;
-	p->right = next;
+static void piece_init(Piece *p, Piece *parent, Piece *left, Piece *right, const char *data, size_t len) {
+	p->parent = parent;
+	p->left = left;
+	p->right = right;
 	p->data = data;
 	p->len = len;
+}
+
+static Piece *piece_next(Piece *p) {
+	if (p->right) {
+		for (p = p->right; p->left; p = p->left);
+		return p;
+	}
+	for ( ; p->parent != NULL; p = p->parent) {
+		// if we're the left child of the parent
+		if (p == p->parent->left) {
+			return p->parent;
+		}
+		// here, we're the right child
+		// continue up the chain
+	}
+	return NULL;
+}
+
+static Piece *piece_prev(Piece *p) {
+	if (p->left) {
+		for (p = p->left; p->right; p = p->right);
+		return p;
+	}
+	for ( ; p->parent != NULL; p = p->parent) {
+		// if we're the right child of the parent
+		if (p == p->parent->right) {
+			return p->parent;
+		}
+		// here, we're the left child
+		// continue up the chain
+	}
+	return NULL;
+}
+
+static int piece_offset(Piece *p) {
+	int sum;
+	for (; p; p = piece_prev(p))
+		sum += p->len;
+	return sum;
 }
 
 /* returns the piece holding the text at byte offset pos. If pos happens to
@@ -443,7 +485,7 @@ bool text_insert(Text *txt, size_t pos, const char *data, size_t len) {
 		 * remove, just add a new piece holding the extra text */
 		if (!(new = piece_alloc(txt)))
 			return false;
-		piece_init(new, p, p->right, data, len);
+		piece_init(new, NULL, p, p->right, data, len);
 		span_init(&c->new, new, new);
 		span_init(&c->old, NULL, NULL);
 	} else {
@@ -457,9 +499,9 @@ bool text_insert(Text *txt, size_t pos, const char *data, size_t len) {
 		Piece *after = piece_alloc(txt);
 		if (!before || !new || !after)
 			return false;
-		piece_init(before, p->left, new, p->data, off);
-		piece_init(new, before, after, data, len);
-		piece_init(after, new, p->right, p->data + off, p->len - off);
+		piece_init(before, NULL, p->left, new, p->data, off);
+		piece_init(new, NULL, before, after, data, len);
+		piece_init(after, NULL, new, p->right, p->data + off, p->len - off);
 
 		span_init(&c->new, before, after);
 		span_init(&c->old, p, p);
@@ -607,12 +649,12 @@ Text *text_loadat_method(int dirfd, const char *filename, enum TextLoadMethod me
 	}
 
 	if (!block)
-		piece_init(p, &txt->begin, &txt->end, "\0", 0);
+		piece_init(p, NULL, &txt->begin, &txt->end, "\0", 0);
 	else
-		piece_init(p, &txt->begin, &txt->end, block->data, block->len);
+		piece_init(p, NULL, &txt->begin, &txt->end, block->data, block->len);
 
-	piece_init(&txt->begin, NULL, p, NULL, 0);
-	piece_init(&txt->end, p, NULL, NULL, 0);
+	piece_init(&txt->begin, NULL, NULL, p, NULL, 0);
+	piece_init(&txt->end, NULL, p, NULL, NULL, 0);
 	txt->size = p->len;
 	/* write an empty revision */
 	change_alloc(txt, EPOS);
@@ -714,12 +756,12 @@ bool text_delete(Text *txt, size_t pos, size_t len) {
 		after = piece_alloc(txt);
 		if (!after)
 			return false;
-		piece_init(after, before, p->right, p->data + p->len - (cur - len), cur - len);
+		piece_init(after, NULL, before, p->right, p->data + p->len - (cur - len), cur - len);
 	}
 
 	if (midway_start) {
 		/* we finally know which piece follows our newly allocated before piece */
-		piece_init(before, start->left, after, start->data, off);
+		piece_init(before, NULL, start->left, after, start->data, off);
 	}
 
 	Piece *new_start = NULL, *new_end = NULL;
