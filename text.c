@@ -358,6 +358,48 @@ static int piece_offset(Piece *p) {
 	return sum;
 }
 
+/* piece is assumed to have a right child
+ *
+ *       2             5
+ *      / \           / \
+ *     0   5         2   9
+ *        / \       / \
+ *       3   9     0   3
+ */
+static void piece_rotate_left(Piece *p) {
+	Piece *c = p->right;
+	// assert(p->parent->right == p)
+	// we are c,
+	// we are a greater child, so our left-children are still greater children
+	// our greater children will remain untouched
+	if (p->right = c->left)
+		c->left->parent = p;
+	c->left = p; // child becomes father
+	c->parent = p->parent; // grandfather becomes father
+	p->parent = c; // father becomes child
+}
+
+/* piece is assumed to have a left child
+ *
+ *         5         2
+ *        / \       / \
+ *       2   9     0   5
+ *      / \           / \
+ *     0   3         3   9
+ */
+static void piece_rotate_right(Piece *p) {
+	Piece *c = p->left;
+	// assert(p->parent->left == p)
+	// we are c,
+	// we are a lesser child, so our right-children are still lesser children
+	// our lesser children will remain untouched
+	if (p->left = c->right)
+		c->right->parent = p;
+	c->right = p; // child becomes father
+	c->parent = p->parent; // grandfather becomes father
+	p->parent = c; // father becomes child
+}
+
 /* returns the piece holding the text at byte offset pos. If pos happens to
  * be at a piece boundary i.e. the first byte of a piece then the previous piece
  * to the left is returned with an offset of piece->len. This is convenient for
