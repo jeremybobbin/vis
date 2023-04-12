@@ -26,6 +26,9 @@
  * Upon insertion/deletion new pieces will be created to represent the changes.
  * Generally pieces are never destroyed, but kept around to perform undo/redo
  * operations.
+ *
+ * The only functions which should assign left, right & parent are:
+ * piece_init, piece_rotate_left, piece_rotate_left, span_swap, text_delete & text_insert
  */
 struct Piece {
 	Text *text;                    /* text to which this piece belongs */
