@@ -786,6 +786,7 @@ bool text_delete(Text *txt, size_t pos, size_t len) {
 	bool midway_start = false, midway_end = false; /* split pieces? */
 	Piece *before, *after; /* unmodified pieces before/after deletion point */
 	Piece *start, *end;    /* span which is removed */
+	Piece *last = NULL;    /* last piece removed (so we can connect all removed pieces) */
 	size_t cur;            /* how much has already been deleted */
 
 	if (off == p->len) {
@@ -839,6 +840,11 @@ bool text_delete(Text *txt, size_t pos, size_t len) {
 			/* implies we have neither left, nor right children & we're trying to delete beyond */
 			/* empty buffer? best to panic */
 		}
+
+		/* connect deleted pieces so we can swap them back in later */
+		if (p->parent = last)
+			last->right = p;
+		last = p;
 	}
 
 	if (cur == len) {
