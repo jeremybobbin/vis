@@ -804,25 +804,36 @@ bool text_delete(Text *txt, size_t pos, size_t len) {
 	}
 
 	/* skip all pieces which fall into deletion range */
-	while (cur < len) {
-		/* have a left (right optional) */
-		if (p->parent && p->left) {
-			p->parent->left = p->left;
+	for (cur = p->len - off; cur < len; p = piece_next(p), cur += p->len) {
+		/* assert(p) */
+		/* have a left (right optional) - promote left, subvert right to left's rightmost */
+		if (p->left) {
+			if (p->parent) {
+				if (p == p->parent->left)
+					p->parent->left = p->left;
+				else
+					p->parent->right = p->left;
+			}
 			p->left->parent = p->parent;
 			if (p->right) {
 				/* we have both children - pass right child to left's rightmost n-child. */
 				/* two assumptions: */
 				/* because we have a left child, piece_prev will NOT return NULL */
 				/* piece_prev called on a branch will NEVER have a right child */
-				piece_prev(p)->right = p->right;
+				(p->right->parent = piece_prev(p))->right = p->right;
 			}
-		/* have a right but no left */
-		} else if (p->parent && !p->left && p->right) {
-			p->right->parent = p->parent;
-			p->right->parent = p->parent;
+		/* have a right but no left - promote right */
+		} else if (p->right) {
+			if (p->right->parent = p->parent) {
+				if (p == p->parent->left)
+					p->parent->left = p->right;
+				else
+					p->parent->right = p->right;
+			}
+		} else {
+			/* implies we have neither left, nor right children & we're trying to delete beyond */
+			/* empty buffer? best to panic */
 		}
-		p = piece_next(p);
-		cur += p->len;
 	}
 
 	if (cur == len) {
