@@ -212,7 +212,7 @@ static void span_init(Span *span, Piece *start, Piece *end) {
 	size_t len = 0;
 	span->start = start;
 	span->end = end;
-	for (Piece *p = start; p; p = p->right) {
+	for (Piece *p = start; p; p = piece_next(p)) {
 		len += p->len;
 		if (p == end)
 			break;
