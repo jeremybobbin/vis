@@ -319,9 +319,9 @@ static void piece_free(Piece *p) {
 static void piece_init(Piece *p, Piece *parent, Piece *left, Piece *right, const char *data, size_t len) {
 	p->parent = parent;
 	if (p->left = left) {
-		p->weight = left->size + left->weight;
+		p->weight = left->len + left->weight;
 	} else {
-		p->size = 0;
+		p->weight = 0;
 	}
 	p->right = right;
 	p->data = data;
