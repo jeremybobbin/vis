@@ -530,9 +530,15 @@ bool text_insert(Text *txt, size_t pos, const char *data, size_t len) {
 		 * remove, just add a new piece holding the extra text */
 		if (!(new = piece_alloc(txt)))
 			return false;
-		piece_init(new, NULL, p, p->right, data, len);
+		piece_init(new, p, NULL, p->right, data, len);
+		// if the piece already has a right child,
+		// squeeze the new one in between it
+		if (p->right)
+			p->right->parent = new;
+		p->right = new;
 		span_init(&c->new, new, new);
 		span_init(&c->old, NULL, NULL);
+	/* TODO: } else if (off == 0) { */
 	} else {
 		/* insert into middle of an existing piece, therefore split the old
 		 * piece. That is we have 3 new pieces one containing the content
@@ -544,13 +550,14 @@ bool text_insert(Text *txt, size_t pos, const char *data, size_t len) {
 		Piece *after = piece_alloc(txt);
 		if (!before || !new || !after)
 			return false;
-		piece_init(before, NULL, p->left, new, p->data, off);
-		piece_init(new, NULL, before, after, data, len);
-		piece_init(after, NULL, new, p->right, p->data + off, p->len - off);
+		piece_init(before, new, p->left, NULL, p->data, off);
+		piece_init(new, p->parent, before, after, data, len);
+		piece_init(after, new, NULL, p->right, p->data + off, p->len - off);
 
 		span_init(&c->new, before, after);
 		span_init(&c->old, p, p);
 	}
+	/* TODO: balance */
 
 	cache_piece(txt, new);
 	span_swap(txt, &c->old, &c->new);
