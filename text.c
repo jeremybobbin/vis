@@ -806,6 +806,7 @@ bool text_delete(Text *txt, size_t pos, size_t len) {
 	/* skip all pieces which fall into deletion range */
 	for (cur = p->len - off; cur < len; p = piece_next(p), cur += p->len) {
 		/* assert(p) */
+		propagate(p, -p->len);
 		/* have a left (right optional) - promote left, subvert right to left's rightmost */
 		if (p->left) {
 			if (p->left->parent = p->parent) {
@@ -858,6 +859,7 @@ bool text_delete(Text *txt, size_t pos, size_t len) {
 		/* we finally know which piece follows our newly allocated before piece */
 		before->data = start->data;
 		before->len = off;
+		propagate(before, off-start->len);
 	}
 
 	Piece *new_start = NULL, *new_end = NULL;
@@ -870,6 +872,7 @@ bool text_delete(Text *txt, size_t pos, size_t len) {
 		if (!midway_start)
 			new_start = after;
 		new_end = after;
+		propagate(after, -cur);
 	}
 
 	span_init(&c->new, new_start, new_end);
