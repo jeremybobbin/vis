@@ -37,6 +37,7 @@ struct Piece {
 	Piece *global_next;            /* used to free individual pieces */
 	const char *data;              /* pointer into a Block holding the data */
 	size_t len;                    /* the length in number of bytes of the data */
+	size_t weight;                 /* weight of the left children (offset) */
 };
 
 /* used to transform a global position (byte offset starting from the beginning
