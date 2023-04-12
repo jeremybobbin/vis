@@ -344,6 +344,15 @@ static Piece *piece_next(Piece *p) {
 	return NULL;
 }
 
+/* propagate weight change */
+static void propagate(Piece *p, int delta) {
+	for ( ; p->parent; p = p->parent) {
+		if (p == p->parent->left) {
+			p->parent->weight += delta;
+		}
+	}
+}
+
 static Piece *piece_prev(Piece *p) {
 	if (p->left) {
 		for (p = p->left; p->right; p = p->right);
