@@ -52,7 +52,7 @@ typedef struct {
  * performed by swapping out an existing span with a new one.
  */
 typedef struct {
-	Piece *start, *end;     /* start/end of the span */
+	Piece *root;            /* root of the span tree */
 	size_t len;             /* the sum of the lengths of the pieces which form this span */
 } Span;
 
@@ -116,7 +116,7 @@ static Piece *piece_prev(Piece *p);
 static Location piece_get_intern(Text *txt, size_t pos);
 static Location piece_get_extern(const Text *txt, size_t pos);
 /* span management */
-static void span_init(Span *span, Piece *start, Piece *end);
+static void span_init(Span *span, Piece *root);
 static void span_swap(Text *txt, Span *old, Span *new);
 /* change management */
 static Change *change_alloc(Text *txt, size_t pos);
@@ -160,14 +160,19 @@ static bool cache_contains(Text *txt, Piece *p) {
 	if (!blk || !txt->cache || txt->cache != p || !rev || !rev->change)
 		return false;
 
-	Piece *start = rev->change->new.start;
-	Piece *end = rev->change->new.end;
+	Piece *root = rev->change->new.root;
+	Piece *cur = root;
+
 	bool found = false;
-	for (Piece *cur = start; !found; cur = cur->right) {
+	for (cur = root; !found && cur != NULL; cur = piece_prev(cur)) {
 		if (cur == p)
 			found = true;
-		if (cur == end)
-			break;
+	}
+
+	/* skip  one since we already saw the root */
+	for (cur = piece_next(root); !found && cur != NULL; cur = piece_next(cur)) {
+		if (cur == p)
+			found = true;
 	}
 
 	return found && p->data + p->len == blk->data + blk->len;
@@ -208,41 +213,36 @@ static bool cache_delete(Text *txt, Piece *p, size_t off, size_t len) {
 }
 
 /* initialize a span and calculate its length */
-static void span_init(Span *span, Piece *start, Piece *end) {
+static void span_init(Span *span, Piece *root) {
+	Piece *p;
 	size_t len = 0;
-	span->start = start;
-	span->end = end;
-	for (Piece *p = start; p; p = piece_next(p)) {
+	span->root = root;
+	for (p = root; p; p = piece_next(p)) {
 		len += p->len;
-		if (p == end)
-			break;
+	}
+	for (p = piece_prev(root); p; p = piece_prev(p)) {
+		len += p->len;
 	}
 	span->len = len;
 }
 
 /* swap out an old span and replace it with a new one.
- *
- *  - if old is an empty span do not remove anything, just insert the new one
- *  - if new is an empty span do not insert anything, just remove the old one
- *
  * adjusts the document size accordingly.
  */
 static void span_swap(Text *txt, Span *old, Span *new) {
-	if (old->len == 0 && new->len == 0) {
-		return;
-	} else if (old->len == 0) {
-		/* insert new span */
-		new->start->left->right = new->start;
-		new->end->right->left = new->end;
-	} else if (new->len == 0) {
-		/* delete old span */
-		old->start->left->right = old->end->right;
-		old->end->right->left = old->start->left;
+	/* replace old with new */
+	Piece *o = old->root;
+	Piece *n = new->root;
+	if (o->parent) {
+		if (o->parent->left == o) {
+			o->parent->left = n;
+		} else if (o->parent->right == o) {
+			o->parent->right = n;
+		}
 	} else {
-		/* replace old with new */
-		old->start->left->right = new->start;
-		old->end->right->left = new->end;
+		txt->root = n;
 	}
+
 	txt->size -= old->len;
 	txt->size += new->len;
 }
@@ -475,9 +475,7 @@ static void change_free(Change *c) {
 	if (!c)
 		return;
 	/* only free the new part of the span, the old one is still in use */
-	if (c->new.start != c->new.end)
-		piece_free(c->new.end);
-	piece_free(c->new.start);
+	/* TODO: free pieces in change series */
 	free(c);
 }
 
@@ -544,8 +542,8 @@ bool text_insert(Text *txt, size_t pos, const char *data, size_t len) {
 		if (p->right)
 			p->right->parent = new;
 		p->right = new;
-		span_init(&c->new, new, new);
-		span_init(&c->old, NULL, NULL);
+		span_init(&c->new, new);
+		span_init(&c->old, NULL);
 	/* TODO: } else if (off == 0) { */
 	} else {
 		/* insert into middle of an existing piece, therefore split the old
@@ -567,8 +565,8 @@ bool text_insert(Text *txt, size_t pos, const char *data, size_t len) {
 			txt->root = new;
 		}
 
-		span_init(&c->new, before, after);
-		span_init(&c->old, p, p);
+		span_init(&c->new, before);
+		span_init(&c->old, p);
 	}
 	/* TODO: balance */
 
@@ -882,8 +880,8 @@ bool text_delete(Text *txt, size_t pos, size_t len) {
 		propagate(after, -cur);
 	}
 
-	span_init(&c->new, new_start, new_end);
-	span_init(&c->old, start, end);
+	span_init(&c->new, new_start);
+	span_init(&c->old, start);
 	span_swap(txt, &c->old, &c->new);
 	return true;
 }
