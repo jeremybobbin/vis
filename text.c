@@ -560,6 +560,11 @@ bool text_insert(Text *txt, size_t pos, const char *data, size_t len) {
 		piece_init(new, p->parent, before, after, data, len);
 		piece_init(after, new, NULL, p->right, p->data + off, p->len - off);
 
+		if (p->parent == NULL) {
+			/* assert(p == txt->root) */
+			txt->root = new;
+		}
+
 		span_init(&c->new, before, after);
 		span_init(&c->old, p, p);
 	}
