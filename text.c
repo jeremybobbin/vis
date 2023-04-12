@@ -780,7 +780,8 @@ bool text_delete(Text *txt, size_t pos, size_t len) {
 		/* deletion starts at a piece boundary */
 		cur = 0;
 		before = p;
-		start = p->right;
+		start = piece_next(p);
+	/* TODO: } else if (off == 0) { */
 	} else {
 		/* deletion starts midway through a piece */
 		midway_start = true;
@@ -793,14 +794,30 @@ bool text_delete(Text *txt, size_t pos, size_t len) {
 
 	/* skip all pieces which fall into deletion range */
 	while (cur < len) {
-		p = p->right;
+		/* have a left (right optional) */
+		if (p->parent && p->left) {
+			p->parent->left = p->left;
+			p->left->parent = p->parent;
+			if (p->right) {
+				/* we have both children - pass right child to left's rightmost n-child. */
+				/* two assumptions: */
+				/* because we have a left child, piece_prev will NOT return NULL */
+				/* piece_prev called on a branch will NEVER have a right child */
+				piece_prev(p)->right = p->right;
+			}
+		/* have a right but no left */
+		} else if (p->parent && !p->left && p->right) {
+			p->right->parent = p->parent;
+			p->right->parent = p->parent;
+		}
+		p = piece_next(p);
 		cur += p->len;
 	}
 
 	if (cur == len) {
 		/* deletion stops at a piece boundary */
 		end = p;
-		after = p->right;
+		after = piece_next(p);
 	} else {
 		/* cur > len: deletion stops midway through a piece */
 		midway_end = true;
@@ -808,12 +825,14 @@ bool text_delete(Text *txt, size_t pos, size_t len) {
 		after = piece_alloc(txt);
 		if (!after)
 			return false;
-		piece_init(after, NULL, before, p->right, p->data + p->len - (cur - len), cur - len);
+		after->data += p->len - (cur - len);
+		after->len = cur - len;
 	}
 
 	if (midway_start) {
 		/* we finally know which piece follows our newly allocated before piece */
-		piece_init(before, NULL, start->left, after, start->data, off);
+		before->data = start->data;
+		before->len = off;
 	}
 
 	Piece *new_start = NULL, *new_end = NULL;
