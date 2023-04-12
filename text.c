@@ -315,9 +315,14 @@ static void piece_free(Piece *p) {
 	free(p);
 }
 
+/* calculates weight given left child - assumes left childs size & weight is correct */
 static void piece_init(Piece *p, Piece *parent, Piece *left, Piece *right, const char *data, size_t len) {
 	p->parent = parent;
-	p->left = left;
+	if (p->left = left) {
+		p->weight = left->size + left->weight;
+	} else {
+		p->size = 0;
+	}
 	p->right = right;
 	p->data = data;
 	p->len = len;
