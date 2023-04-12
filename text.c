@@ -90,7 +90,7 @@ struct Text {
 	Array blocks;           /* blocks which hold text content */
 	Piece *pieces;          /* all pieces which have been allocated, used to free them */
 	Piece *cache;           /* most recently modified piece */
-	Piece begin, end;       /* sentinel nodes which always exists but don't hold any data */
+	Piece *root;            /* root pointer to piece tree */
 	Revision *history;        /* undo tree */
 	Revision *current_revision; /* revision holding all file changes until a snapshot is performed */
 	Revision *last_revision;    /* the last revision added to the tree, chronologically */
@@ -428,10 +428,15 @@ static void piece_rotate_right(Piece *p) {
  */
 static Location piece_get_intern(Text *txt, size_t pos) {
 	size_t cur = 0;
-	for (Piece *p = &txt->begin; p->right; p = p->right) {
-		if (cur <= pos && pos <= cur + p->len)
+	for (Piece *p = txt->root; p;) {
+		if (pos < p->weight) {
+			p = p->left;
+		} else if ((pos - p->weight) < p->len) {
 			return (Location){ .piece = p, .off = pos - cur };
-		cur += p->len;
+		} else {
+			cur += p->weight;
+			p = p->right;
+		}
 	}
 
 	return (Location){ 0 };
@@ -443,19 +448,7 @@ static Location piece_get_intern(Text *txt, size_t pos) {
  * the last piece holding data is returned.
  */
 static Location piece_get_extern(const Text *txt, size_t pos) {
-	size_t cur = 0;
-	Piece *p;
-
-	for (p = txt->begin.right; p->right; p = p->right) {
-		if (cur <= pos && pos < cur + p->len)
-			return (Location){ .piece = p, .off = pos - cur };
-		cur += p->len;
-	}
-
-	if (cur == pos)
-		return (Location){ .piece = p->left, .off = p->left->len };
-
-	return (Location){ 0 };
+	piece_get_intern((Text *)txt, pos);
 }
 
 /* allocate a new change, associate it with current revision or a newly
@@ -703,8 +696,8 @@ Text *text_loadat_method(int dirfd, const char *filename, enum TextLoadMethod me
 	Text *txt = calloc(1, sizeof *txt);
 	if (!txt)
 		return NULL;
-	Piece *p = piece_alloc(txt);
-	if (!p)
+	txt->root = piece_alloc(txt);
+	if (!txt->root)
 		goto out;
 	Block *block = NULL;
 	array_init(&txt->blocks);
@@ -721,13 +714,11 @@ Text *text_loadat_method(int dirfd, const char *filename, enum TextLoadMethod me
 	}
 
 	if (!block)
-		piece_init(p, NULL, &txt->begin, &txt->end, "\0", 0);
+		piece_init(txt->root, NULL, NULL, NULL, "\0", 0);
 	else
-		piece_init(p, NULL, &txt->begin, &txt->end, block->data, block->len);
+		piece_init(txt->root, NULL, NULL, NULL, block->data, block->len);
 
-	piece_init(&txt->begin, NULL, NULL, p, NULL, 0);
-	piece_init(&txt->end, NULL, p, NULL, NULL, 0);
-	txt->size = p->len;
+	txt->size = txt->root->len;
 	/* write an empty revision */
 	change_alloc(txt, EPOS);
 	text_snapshot(txt);
@@ -1096,12 +1087,16 @@ size_t text_lineno_by_pos(Text *txt, size_t pos) {
 }
 
 Mark text_mark_set(Text *txt, size_t pos) {
-	if (pos == txt->size)
-		return (Mark)&txt->end;
-	Location loc = piece_get_extern(txt, pos);
-	if (!loc.piece)
-		return EMARK;
-	return (Mark)(loc.piece->data + loc.off);
+	for (Piece *p = txt->root; p;) {
+		if (pos < p->weight) {
+			p = p->left;
+		} else if ((pos - p->weight) < p->len) {
+			return (Mark)(p->data + (pos - p->weight));
+		} else {
+			p = p->right;
+		}
+	}
+	return EPOS;
 }
 
 size_t text_mark_get(const Text *txt, Mark mark) {
@@ -1109,15 +1104,12 @@ size_t text_mark_get(const Text *txt, Mark mark) {
 
 	if (mark == EMARK)
 		return EPOS;
-	if (mark == (Mark)&txt->end)
-		return txt->size;
 
-	for (Piece *p = txt->begin.right; p->right; p = p->right) {
+	for (Piece *p = txt->root; p; p = piece_next(p)) {
 		Mark start = (Mark)(p->data);
 		Mark end = start + p->len;
 		if (start <= mark && mark < end)
 			return cur + (mark - start);
-		cur += p->len;
 	}
 
 	return EPOS;
