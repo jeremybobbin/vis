@@ -808,13 +808,14 @@ bool text_delete(Text *txt, size_t pos, size_t len) {
 		/* assert(p) */
 		/* have a left (right optional) - promote left, subvert right to left's rightmost */
 		if (p->left) {
-			if (p->parent) {
+			if (p->left->parent = p->parent) {
 				if (p == p->parent->left)
 					p->parent->left = p->left;
 				else
 					p->parent->right = p->left;
+			} else {
+				txt->root = p->left;
 			}
-			p->left->parent = p->parent;
 			if (p->right) {
 				/* we have both children - pass right child to left's rightmost n-child. */
 				/* two assumptions: */
@@ -829,6 +830,8 @@ bool text_delete(Text *txt, size_t pos, size_t len) {
 					p->parent->left = p->right;
 				else
 					p->parent->right = p->right;
+			} else {
+				txt->root = p->left;
 			}
 		} else {
 			/* implies we have neither left, nor right children & we're trying to delete beyond */
