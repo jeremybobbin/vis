@@ -968,13 +968,14 @@ Iterator text_iterator_get(const Text *txt, size_t pos) {
 
 bool text_iterator_next(Iterator *it) {
 	size_t rem = it->end - it->text;
-	return iterator_init(it, it->pos+rem, it->piece ? it->piece->right : NULL, 0);
+	return iterator_init(it, it->pos+rem, it->piece ? piece_next(it->piece) : NULL, 0);
 }
 
 bool text_iterator_prev(Iterator *it) {
+	Piece *p = it->piece ? piece_prev(it->piece) : NULL;
 	size_t off = it->text - it->start;
-	size_t len = it->piece && it->piece->left ? it->piece->left->len : 0;
-	return iterator_init(it, it->pos-off, it->piece ? it->piece->left : NULL, len);
+	size_t len = p ? p->len : 0;
+	return iterator_init(it, it->pos-off, p, len);
 }
 
 const Text *text_iterator_text(const Iterator *it) {
@@ -987,11 +988,11 @@ bool text_iterator_valid(const Iterator *it) {
 }
 
 bool text_iterator_has_next(const Iterator *it) {
-	return it->piece && it->piece->right;
+	return it->piece && piece_next(it->piece);
 }
 
 bool text_iterator_has_prev(const Iterator *it) {
-	return it->piece && it->piece->left;
+	return it->piece && piece_prev(it->piece);
 }
 
 size_t text_size(const Text *txt) {
