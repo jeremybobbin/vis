@@ -572,6 +572,7 @@ bool text_insert(Text *txt, size_t pos, const char *data, size_t len) {
 	}
 	/* TODO: balance */
 
+	propagate(new, len);
 	cache_piece(txt, new);
 	span_swap(txt, &c->old, &c->new);
 	return true;
