@@ -29,7 +29,7 @@
  */
 struct Piece {
 	Text *text;             /* text to which this piece belongs */
-	Piece *prev, *next;     /* pointers to the logical predecessor/successor */
+	Piece *left, *right;    /* pointers to the logical predecessor/successor */
 	Piece *global_prev;     /* double linked list in order of allocation, */
 	Piece *global_next;     /* used to free individual pieces */
 	const char *data;       /* pointer into a Block holding the data */
@@ -157,7 +157,7 @@ static bool cache_contains(Text *txt, Piece *p) {
 	Piece *start = rev->change->new.start;
 	Piece *end = rev->change->new.end;
 	bool found = false;
-	for (Piece *cur = start; !found; cur = cur->next) {
+	for (Piece *cur = start; !found; cur = cur->right) {
 		if (cur == p)
 			found = true;
 		if (cur == end)
@@ -206,7 +206,7 @@ static void span_init(Span *span, Piece *start, Piece *end) {
 	size_t len = 0;
 	span->start = start;
 	span->end = end;
-	for (Piece *p = start; p; p = p->next) {
+	for (Piece *p = start; p; p = p->right) {
 		len += p->len;
 		if (p == end)
 			break;
@@ -226,16 +226,16 @@ static void span_swap(Text *txt, Span *old, Span *new) {
 		return;
 	} else if (old->len == 0) {
 		/* insert new span */
-		new->start->prev->next = new->start;
-		new->end->next->prev = new->end;
+		new->start->left->right = new->start;
+		new->end->right->left = new->end;
 	} else if (new->len == 0) {
 		/* delete old span */
-		old->start->prev->next = old->end->next;
-		old->end->next->prev = old->start->prev;
+		old->start->left->right = old->end->right;
+		old->end->right->left = old->start->left;
 	} else {
 		/* replace old with new */
-		old->start->prev->next = new->start;
-		old->end->next->prev = new->end;
+		old->start->left->right = new->start;
+		old->end->right->left = new->end;
 	}
 	txt->size -= old->len;
 	txt->size += new->len;
@@ -310,8 +310,8 @@ static void piece_free(Piece *p) {
 }
 
 static void piece_init(Piece *p, Piece *prev, Piece *next, const char *data, size_t len) {
-	p->prev = prev;
-	p->next = next;
+	p->left = prev;
+	p->right = next;
 	p->data = data;
 	p->len = len;
 }
@@ -326,7 +326,7 @@ static void piece_init(Piece *p, Piece *prev, Piece *next, const char *data, siz
  */
 static Location piece_get_intern(Text *txt, size_t pos) {
 	size_t cur = 0;
-	for (Piece *p = &txt->begin; p->next; p = p->next) {
+	for (Piece *p = &txt->begin; p->right; p = p->right) {
 		if (cur <= pos && pos <= cur + p->len)
 			return (Location){ .piece = p, .off = pos - cur };
 		cur += p->len;
@@ -344,14 +344,14 @@ static Location piece_get_extern(const Text *txt, size_t pos) {
 	size_t cur = 0;
 	Piece *p;
 
-	for (p = txt->begin.next; p->next; p = p->next) {
+	for (p = txt->begin.right; p->right; p = p->right) {
 		if (cur <= pos && pos < cur + p->len)
 			return (Location){ .piece = p, .off = pos - cur };
 		cur += p->len;
 	}
 
 	if (cur == pos)
-		return (Location){ .piece = p->prev, .off = p->prev->len };
+		return (Location){ .piece = p->left, .off = p->left->len };
 
 	return (Location){ 0 };
 }
@@ -443,7 +443,7 @@ bool text_insert(Text *txt, size_t pos, const char *data, size_t len) {
 		 * remove, just add a new piece holding the extra text */
 		if (!(new = piece_alloc(txt)))
 			return false;
-		piece_init(new, p, p->next, data, len);
+		piece_init(new, p, p->right, data, len);
 		span_init(&c->new, new, new);
 		span_init(&c->old, NULL, NULL);
 	} else {
@@ -457,9 +457,9 @@ bool text_insert(Text *txt, size_t pos, const char *data, size_t len) {
 		Piece *after = piece_alloc(txt);
 		if (!before || !new || !after)
 			return false;
-		piece_init(before, p->prev, new, p->data, off);
+		piece_init(before, p->left, new, p->data, off);
 		piece_init(new, before, after, data, len);
-		piece_init(after, new, p->next, p->data + off, p->len - off);
+		piece_init(after, new, p->right, p->data + off, p->len - off);
 
 		span_init(&c->new, before, after);
 		span_init(&c->old, p, p);
@@ -686,7 +686,7 @@ bool text_delete(Text *txt, size_t pos, size_t len) {
 		/* deletion starts at a piece boundary */
 		cur = 0;
 		before = p;
-		start = p->next;
+		start = p->right;
 	} else {
 		/* deletion starts midway through a piece */
 		midway_start = true;
@@ -699,14 +699,14 @@ bool text_delete(Text *txt, size_t pos, size_t len) {
 
 	/* skip all pieces which fall into deletion range */
 	while (cur < len) {
-		p = p->next;
+		p = p->right;
 		cur += p->len;
 	}
 
 	if (cur == len) {
 		/* deletion stops at a piece boundary */
 		end = p;
-		after = p->next;
+		after = p->right;
 	} else {
 		/* cur > len: deletion stops midway through a piece */
 		midway_end = true;
@@ -714,12 +714,12 @@ bool text_delete(Text *txt, size_t pos, size_t len) {
 		after = piece_alloc(txt);
 		if (!after)
 			return false;
-		piece_init(after, before, p->next, p->data + p->len - (cur - len), cur - len);
+		piece_init(after, before, p->right, p->data + p->len - (cur - len), cur - len);
 	}
 
 	if (midway_start) {
 		/* we finally know which piece follows our newly allocated before piece */
-		piece_init(before, start->prev, after, start->data, off);
+		piece_init(before, start->left, after, start->data, off);
 	}
 
 	Piece *new_start = NULL, *new_end = NULL;
@@ -822,13 +822,13 @@ Iterator text_iterator_get(const Text *txt, size_t pos) {
 
 bool text_iterator_next(Iterator *it) {
 	size_t rem = it->end - it->text;
-	return iterator_init(it, it->pos+rem, it->piece ? it->piece->next : NULL, 0);
+	return iterator_init(it, it->pos+rem, it->piece ? it->piece->right : NULL, 0);
 }
 
 bool text_iterator_prev(Iterator *it) {
 	size_t off = it->text - it->start;
-	size_t len = it->piece && it->piece->prev ? it->piece->prev->len : 0;
-	return iterator_init(it, it->pos-off, it->piece ? it->piece->prev : NULL, len);
+	size_t len = it->piece && it->piece->left ? it->piece->left->len : 0;
+	return iterator_init(it, it->pos-off, it->piece ? it->piece->left : NULL, len);
 }
 
 const Text *text_iterator_text(const Iterator *it) {
@@ -841,11 +841,11 @@ bool text_iterator_valid(const Iterator *it) {
 }
 
 bool text_iterator_has_next(const Iterator *it) {
-	return it->piece && it->piece->next;
+	return it->piece && it->piece->right;
 }
 
 bool text_iterator_has_prev(const Iterator *it) {
-	return it->piece && it->piece->prev;
+	return it->piece && it->piece->left;
 }
 
 size_t text_size(const Text *txt) {
@@ -965,7 +965,7 @@ size_t text_mark_get(const Text *txt, Mark mark) {
 	if (mark == (Mark)&txt->end)
 		return txt->size;
 
-	for (Piece *p = txt->begin.next; p->next; p = p->next) {
+	for (Piece *p = txt->begin.right; p->right; p = p->right) {
 		Mark start = (Mark)(p->data);
 		Mark end = start + p->len;
 		if (start <= mark && mark < end)
