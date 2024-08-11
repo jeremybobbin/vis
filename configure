@@ -151,6 +151,7 @@ case "$arg" in
 --disable-selinux|--enable-selinux=no) selinux=no ;;
 --enable-acl|--enable-acl=yes) acl=yes ;;
 --disable-acl|--enable-acl=no) acl=no ;;
+--with-release-version=*) VERSION=${arg#*=} ;;
 --enable-*|--disable-*|--with-*|--without-*|--*dir=*|--build=*) ;;
 -* ) echo "$0: unknown option $arg" ;;
 CC=*) CC=${arg#*=} ;;
@@ -282,6 +283,15 @@ printf "done\n"
 
 if test "$environmentonly" = "yes"; then
 	exit 0
+fi
+
+if [ -n "${VERSION}" ]; then
+	:
+elif printf "checking for commit hash ... "; VERSION=$(git describe --always --dirty 2>/dev/null); then
+	printf "%s\n" "$VERSION"
+else
+	VERSION="v0.9-git"
+	printf "%s\n" "no"
 fi
 
 have_pkgconfig=no
@@ -657,6 +667,7 @@ CONFIG_SELINUX = $CONFIG_SELINUX
 CFLAGS_SELINUX = $CFLAGS_SELINUX
 LDFLAGS_SELINUX = $LDFLAGS_SELINUX
 CFLAGS_LIBC = -DHAVE_MEMRCHR=$HAVE_MEMRCHR
+VERSION = $VERSION
 EOF
 exec 1>&3 3>&-
 
