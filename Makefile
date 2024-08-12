@@ -1,4 +1,5 @@
 .POSIX:
+.SUFFIXES: .o .c
 
 include config.mk
 
@@ -27,6 +28,8 @@ SRC = array.c \
 	vis-registers.c \
 	vis-text-objects.c \
 	$(REGEX_SRC)
+
+OBJ=$(SRC:c=o)
 
 ELF = vis vis-menu vis-digraph
 EXECUTABLES = $(ELF) vis-clipboard vis-complete vis-open
@@ -57,14 +60,77 @@ DOCKER=docker
 
 all: $(ELF)
 
+.c.o:
+	$(CC) ${CFLAGS} ${CFLAGS_VIS} ${CFLAGS_STD} ${CFLAGS_EXTRA} -c $< -o $@
+
 config.h:
 	cp config.def.h config.h
 
 config.mk:
 	@touch $@
 
-vis: config.h config.mk *.c *.h
-	${CC} ${CFLAGS} ${CFLAGS_VIS} ${CFLAGS_EXTRA} ${SRC} ${LDFLAGS} ${LDFLAGS_VIS} -o $@
+$(OBJ): config.mk config.h
+
+
+map.o: map.h
+array.o: array.h util.h
+buffer.o: buffer.h util.h
+libutf.o: libutf.h util.h
+
+text-common.o: text.h
+text-io.o: text.h text-internal.h text-util.h util.h
+text-iterator.o: text.h util.h
+text-motions.o: text-motions.h text-util.h util.h text-objects.h
+text-objects.o: text-motions.h text-objects.h text-util.h util.h
+text.o: text.h text-util.h text-motions.h util.h array.h text-internal.h
+
+sam.o: sam.h vis-core.h buffer.h text.h text-motions.h text-objects.h text-regex.h util.h vis-cmds.c
+$(REGEX_SRC:.c=.o): text-regex.h $(REGEX_SRC)
+text-util.o: text-util.h util.h
+ui-terminal-vt100.o: buffer.h
+ui-terminal.o: ui-terminal.h vis.h vis-core.h text.h util.h text-util.h ui-terminal-curses.c ui-terminal-vt100.c
+view.o: view.h text.h text-motions.h text-util.h util.h
+vis-cmds.o: vis-lua.h sam.c
+vis-lua.o: vis-lua.h vis-core.h text-motions.h util.h
+
+vis-marks.o: vis-core.h
+vis-registers.o: vis-core.h
+vis-modes.o: vis-core.h text-motions.h util.h
+vis-motions.o: vis-core.h text-motions.h text-objects.h text-util.h util.h
+vis-operators.o: vis-core.h text-motions.h text-objects.h text-util.h util.h
+vis-prompt.o: vis-core.h text-motions.h text-objects.h text-util.h
+vis-text-objects.o: vis-core.h text-objects.h util.h
+
+vis.o: vis.h text-util.h text-motions.h text-objects.h util.h vis-core.h sam.h ui.h
+main.o: ui-terminal.h vis.h vis-lua.h text-util.h text-motions.h text-objects.h util.h libutf.h array.h buffer.h config.h
+
+vis: \
+	$(REGEX_SRC:.c=.o) \
+	array.o \
+	buffer.o \
+	map.o \
+	sam.o \
+	text-common.o \
+	text-io.o \
+	text-iterator.o \
+	text-motions.o \
+	text.o \
+	text-objects.o \
+	text-util.o \
+	view.o \
+	vis-lua.o \
+	vis-modes.o \
+	vis-marks.o \
+	vis-prompt.o \
+	vis-motions.o \
+	vis-registers.o \
+	vis-text-objects.o \
+	vis-operators.o \
+	libutf.o \
+	ui-terminal.o \
+	main.o \
+	vis.o
+	${CC} ${CFLAGS} ${CFLAGS_VIS} ${CFLAGS_EXTRA} $^  -o $@  ${LDFLAGS} ${LDFLAGS_VIS}
 
 vis-menu: vis-menu.c
 	${CC} ${CFLAGS} ${CFLAGS_AUTO} ${CFLAGS_STD} ${CFLAGS_EXTRA} -DVERSION=\"${VERSION}\" $< ${LDFLAGS} ${LDFLAGS_STD} ${LDFLAGS_AUTO} -o $@
@@ -132,7 +198,7 @@ testclean:
 
 clean:
 	@echo cleaning
-	@rm -f $(ELF) vis-single vis-single-payload.inc vis-*.tar.gz *.gcov *.gcda *.gcno
+	@rm -f $(ELF) vis-single vis-single-payload.inc vis-*.tar.gz *.gcov *.gcda *.gcno *.o
 
 distclean: clean testclean
 	@echo cleaning build configuration
