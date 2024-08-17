@@ -191,8 +191,6 @@ struct Vis {
 	Map *cmds;                           /* ":"-commands, used for unique prefix queries */
 	Map *usercmds;                       /* user registered ":"-commands */
 	Map *options;                        /* ":set"-options */
-	Map *keymap;                         /* key translation before any bindings are matched */
-	bool keymap_disabled;                /* ignore key map for next key press, gets automatically re-enabled */
 	char key[VIS_KEY_LENGTH_MAX];        /* last pressed key as reported from the UI */
 	char key_current[VIS_KEY_LENGTH_MAX];/* current key being processed by the input queue */
 	char key_prev[VIS_KEY_LENGTH_MAX];   /* previous key which was processed by the input queue */

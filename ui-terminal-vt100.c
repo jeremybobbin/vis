@@ -39,8 +39,6 @@
 #include <stdio.h>
 #include "buffer.h"
 
-#define UI_TERMKEY_FLAGS TERMKEY_FLAG_UTF8
-
 #define ui_term_backend_init ui_vt100_init
 #define ui_term_backend_blit ui_vt100_blit
 #define ui_term_backend_clear ui_vt100_clear
@@ -188,8 +186,6 @@ static int ui_vt100_colors(Ui *ui) {
 }
 
 static void ui_vt100_suspend(UiTerm *tui) {
-	if (!tui->termkey) return;
-	termkey_stop(tui->termkey);
 	cursor_visible(true);
 	screen_alternate(false);
 }
@@ -197,7 +193,6 @@ static void ui_vt100_suspend(UiTerm *tui) {
 static void ui_vt100_resume(UiTerm *tui) {
 	screen_alternate(true);
 	cursor_visible(false);
-	termkey_start(tui->termkey);
 }
 
 static bool ui_vt100_init(UiTerm *tui, char *term) {
