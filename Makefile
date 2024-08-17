@@ -38,7 +38,7 @@ MANUALS = $(EXECUTABLES:=.1)
 
 DOCUMENTATION = LICENSE README.md
 
-CFLAGS_VIS = $(CFLAGS_AUTO) $(CFLAGS_TERMKEY) $(CFLAGS_CURSES) $(CFLAGS_ACL) \
+CFLAGS_VIS = $(CFLAGS_AUTO) $(CFLAGS_CURSES) $(CFLAGS_ACL) \
 	$(CFLAGS_SELINUX) $(CFLAGS_TRE) $(CFLAGS_LUA) $(CFLAGS_LPEG) $(CFLAGS_STD) \
 	$(CFLAGS_LIBC) \
 	-DVIS_PATH=\"${SHAREPREFIX}/vis\" \
@@ -51,7 +51,7 @@ CFLAGS_VIS = $(CFLAGS_AUTO) $(CFLAGS_TERMKEY) $(CFLAGS_CURSES) $(CFLAGS_ACL) \
 	-DCONFIG_ACL=${CONFIG_ACL} \
 	-DVERSION=\"${VERSION}\"
 
-LDFLAGS_VIS = $(LDFLAGS_AUTO) $(LDFLAGS_TERMKEY) $(LDFLAGS_CURSES) $(LDFLAGS_ACL) \
+LDFLAGS_VIS = $(LDFLAGS_AUTO) $(LDFLAGS_CURSES) $(LDFLAGS_ACL) \
 	$(LDFLAGS_SELINUX) $(LDFLAGS_TRE) $(LDFLAGS_LUA) $(LDFLAGS_LPEG) $(LDFLAGS_STD)
 
 STRIP=strip
@@ -84,11 +84,14 @@ text-motions.o: text-motions.h text-util.h util.h text-objects.h
 text-objects.o: text-motions.h text-objects.h text-util.h util.h
 text.o: text.h text-util.h text-motions.h util.h array.h text-internal.h
 
+ui-terminal-keytab.h: keytab.in
+	./ui-terminal-keytab.sh > $@
+
 sam.o: sam.h vis-core.h buffer.h text.h text-motions.h text-objects.h text-regex.h util.h vis-cmds.c
 $(REGEX_SRC:.c=.o): text-regex.h $(REGEX_SRC)
 text-util.o: text-util.h util.h
 ui-terminal-vt100.o: buffer.h
-ui-terminal.o: ui-terminal.h vis.h vis-core.h text.h util.h text-util.h ui-terminal-curses.c ui-terminal-vt100.c
+ui-terminal.o: ui-terminal-keytab.h vis.h vis-core.h text.h util.h text-util.h ui-terminal-curses.c ui-terminal-vt100.c
 view.o: view.h text.h text-motions.h text-util.h util.h
 vis-cmds.o: vis-lua.h sam.c
 vis-lua.o: vis-lua.h vis-core.h text-motions.h util.h

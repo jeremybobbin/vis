@@ -11,7 +11,7 @@
 #include <sys/types.h>
 
 #include "ui-terminal.h"
-#include "vis.h"
+#include "vis-core.h"
 #include "vis-lua.h"
 #include "text-util.h"
 #include "text-motions.h"
@@ -1793,11 +1793,11 @@ static const char *replace(Vis *vis, const char *keys, const Arg *arg) {
 		return NULL;
 
 	char replacement[UTFmax+1];
-	if (!vis_keys_utf8(vis, keys, replacement))
+	int len = vis->ui->encode_key(vis->ui, replacement, 31, keys);
+	if (len <= 0) {
 		return next;
-
-	if (replacement[0] == 0x1b) /* <Escape> */
-		return next;
+	}
+	replacement[len] = '\0';
 
 	vis_operator(vis, VIS_OP_REPLACE, replacement);
 	if (vis_mode_get(vis) == VIS_MODE_OPERATOR_PENDING)
@@ -1842,8 +1842,9 @@ static const char *movement_key(Vis *vis, const char *keys, const Arg *arg) {
 	if (!next)
 		return NULL;
 	char utf8[UTFmax+1];
-	if (vis_keys_utf8(vis, keys, utf8))
+	if (vis_keys_utf8(vis, keys, utf8) > 0) {
 		vis_motion(vis, arg->i, utf8);
+	}
 	return next;
 }
 
@@ -1962,7 +1963,7 @@ static const char *prompt_show(Vis *vis, const char *keys, const Arg *arg) {
 
 static const char *insert_verbatim(Vis *vis, const char *keys, const Arg *arg) {
 	Rune rune = 0;
-	char buf[4], type = keys[0];
+	char buf[512], type = keys[0];
 	const char *data = NULL;
 	int len = 0, count = 0, base = 0;
 	switch (type) {
@@ -2026,10 +2027,7 @@ static const char *insert_verbatim(Vis *vis, const char *keys, const Arg *arg) {
 		const char *next = vis_keys_next(vis, keys);
 		if (!next)
 			return NULL;
-		if ((rune = vis_keys_codepoint(vis, keys)) != (Rune)-1) {
-			len = runetochar(buf, &rune);
-			if (buf[0] == '\n')
-				buf[0] = '\r';
+		if ((len = vis_keys_utf8(vis, keys, buf)) > 0) {
 			data = buf;
 		} else {
 			vis_info_show(vis, "Unknown key");

@@ -18,7 +18,6 @@
 #include <sys/mman.h>
 #include <pwd.h>
 #include <libgen.h>
-#include <termkey.h>
 
 #include "vis.h"
 #include "text-util.h"
@@ -28,7 +27,6 @@
 #include "vis-core.h"
 #include "sam.h"
 #include "ui.h"
-
 
 static void macro_replay(Vis *vis, const Macro *macro);
 static void macro_replay_internal(Vis *vis, const Macro *macro);
@@ -1102,80 +1100,133 @@ void vis_die(Vis *vis, const char *msg, ...) {
 const char *vis_keys_next(Vis *vis, const char *keys) {
 	if (!keys || !*keys)
 		return NULL;
-	TermKeyKey key;
-	TermKey *termkey = vis->ui->termkey_get(vis->ui);
-	const char *next = NULL;
-	/* first try to parse a special key of the form <Key> */
-	if (*keys == '<' && keys[1] && (next = termkey_strpkey(termkey, keys+1, &key, TERMKEY_FORMAT_VIM)) && *next == '>')
-		return next+1;
-	if (strncmp(keys, "<vis-", 5) == 0) {
-		const char *start = keys + 1, *end = start;
-		while (*end && *end != '>')
-			end++;
-		if (end > start && end - start - 1 < VIS_KEY_LENGTH_MAX && *end == '>') {
-			char key[VIS_KEY_LENGTH_MAX];
-			memcpy(key, start, end - start);
-			key[end - start] = '\0';
-			if (map_get(vis->actions, key))
-				return end + 1;
+	int i = 0, j;
+	char mod = 0;
+
+	if (keys[i] == '<') {
+		i++;
+		if (strncmp(&keys[i], "vis-", 4) == 0) {
+			const char *start = keys + 1, *end = start;
+			while (end - start < VIS_KEY_LENGTH_MAX && *end && *end != '>')
+				end++;
+			if (end > start && *end == '>') {
+				char key[VIS_KEY_LENGTH_MAX];
+				memcpy(key, start, end - start);
+				key[end - start] = '\0';
+				if (map_get(vis->actions, key))
+					return end + 1;
+			}
+		}
+		for (;;) {
+			switch (keys[i]) {
+			case 'C':
+			case 'M':
+			case 'S':
+				if (keys[i+1] != '-') {
+					break;
+				}
+				switch(keys[i]) {
+				case 'C':
+					if (mod & 1) {
+						return &keys[1];
+					}
+					mod |= 1;
+					break;
+				case 'M':
+					if (mod & 2) {
+						return &keys[1];
+					}
+					mod |= 2;
+					break;
+				case 'S':
+					if (mod & 4) {
+						return &keys[1];
+					}
+					mod |= 4;
+					break;
+				}
+				i += 2;
+				continue;
+			case '\0':
+				return &keys[1];
+			}
+			break;
+		}
+
+		if (keys[i] == 'F' && keys[i+1] >= '0' && keys[i+1] <= '9') {
+			for (j = 2; j < 4; j++) {
+				if (keys[i+j] < '0' || keys[i+j] > '9') {
+					break;
+				}
+			}
+			i += j;
+		} else if (keys[i] && ((keys[i] & 0x80) == 0) && keys[i+1] && ((keys[i+1] & 0x80) == 0) && keys[i+1] != '>') {
+			// start, end
+			for (j = 0; j < LENGTH(vis_keys_symbolic); j++) {
+				if (strncmp(&keys[i], vis_keys_symbolic[j], strlen(vis_keys_symbolic[j])) != 0) {
+					//no-op
+				} else if (keys[i+strlen(vis_keys_symbolic[j])] == '>') {
+					return &keys[i+strlen(vis_keys_symbolic[j])+1];
+				}
+			}
+		} else if (mod) {
+			if (ISUTF8(keys[i]))
+				i++;
+			while (!ISUTF8(keys[i]))
+				i++;
+		} else {
+			return &keys[1];
+		}
+
+		if (keys[i] == '>') {
+			return &keys[i+1];
+		} else {
+			return &keys[1];
 		}
 	}
-	if (ISUTF8(*keys))
-		keys++;
-	while (!ISUTF8(*keys))
-		keys++;
-	return keys;
-}
 
-long vis_keys_codepoint(Vis *vis, const char *keys) {
-	long codepoint = -1;
-	const char *next;
-	TermKeyKey key;
-	TermKey *termkey = vis->ui->termkey_get(vis->ui);
 
-	if (!keys[0])
-		return -1;
-	if (keys[0] == '<' && !keys[1])
-		return '<';
-
-	if (keys[0] == '<' && (next = termkey_strpkey(termkey, keys+1, &key, TERMKEY_FORMAT_VIM)) && *next == '>')
-		codepoint = (key.type == TERMKEY_TYPE_UNICODE) ? key.code.codepoint : -1;
-	else if ((next = termkey_strpkey(termkey, keys, &key, TERMKEY_FORMAT_VIM)))
-		codepoint = (key.type == TERMKEY_TYPE_UNICODE) ? key.code.codepoint : -1;
-
-	if (codepoint != -1) {
-		if (key.modifiers == TERMKEY_KEYMOD_CTRL)
-			codepoint &= 0x1f;
-		return codepoint;
+	if (ISUTF8(keys[i])) {
+		i++;
+		while (!ISUTF8(keys[i]))
+			i++;
+		// TODO: are "!ISUTF8" chars valid like <C-???>
+	} else {
+		return &keys[1];
 	}
 
-	if (!next || key.type != TERMKEY_TYPE_KEYSYM)
-		return -1;
-
-	const int keysym[] = {
-		TERMKEY_SYM_ENTER, '\n',
-		TERMKEY_SYM_TAB, '\t',
-		TERMKEY_SYM_BACKSPACE, '\b',
-		TERMKEY_SYM_ESCAPE, 0x1b,
-		TERMKEY_SYM_DELETE, 0x7f,
-		0,
-	};
-
-	for (const int *k = keysym; k[0]; k += 2) {
-		if (key.code.sym == k[0])
-			return k[1];
-	}
-
-	return -1;
+	return &keys[i];
 }
 
-bool vis_keys_utf8(Vis *vis, const char *keys, char utf8[static UTFmax+1]) {
-	Rune rune = vis_keys_codepoint(vis, keys);
-	if (rune == (Rune)-1)
-		return false;
-	size_t len = runetochar(utf8, &rune);
-	utf8[len] = '\0';
-	return true;
+int vis_keys_utf8(Vis *vis, const char *keys, char utf8[static UTFmax+1]) {
+	// TODO: these keys should just be aliases <Delete> -> 0x7f
+	if (strcmp(keys, "<Escape>") == 0) {
+		utf8[0] = 0x1b;
+		utf8[1] = '\0';
+		return 1;
+	} else if (strcmp(keys, "<Delete>") == 0) {
+		utf8[0] = 0x7f;
+		utf8[1] = '\0';
+		return 1;
+	} else if (strcmp(keys, "<Tab>") == 0) {
+		utf8[0] = '\t';
+		utf8[1] = '\0';
+		return 1;
+	} else if (strcmp(keys, "<Enter>") == 0) {
+		utf8[0] = '\r';
+		utf8[1] = '\0';
+		return 1;
+	} else if (strcmp(keys, "<Space>") == 0) {
+		utf8[0] = ' ';
+		utf8[1] = '\0';
+		return 1;
+	}
+
+	int n = vis->ui->encode_key(vis->ui, utf8, UTFmax, keys);
+	if (n > 0) {
+		utf8[n] = '\0';
+	}
+	return n;
 }
 
 typedef struct {
@@ -1322,29 +1373,6 @@ static void vis_keys_push(Vis *vis, const char *input, size_t pos, bool record) 
 		vis_keys_process(vis, pos);
 }
 
-static const char *getkey(Vis *vis) {
-	TermKeyKey key = { 0 };
-	if (!vis->ui->getkey(vis->ui, &key))
-		return NULL;
-	vis_info_hide(vis);
-	bool use_keymap = vis->mode->id != VIS_MODE_INSERT &&
-	                  vis->mode->id != VIS_MODE_REPLACE &&
-	                  !vis->keymap_disabled;
-	vis->keymap_disabled = false;
-	if (key.type == TERMKEY_TYPE_UNICODE && use_keymap) {
-		const char *mapped = map_get(vis->keymap, key.utf8);
-		if (mapped) {
-			size_t len = strlen(mapped)+1;
-			if (len <= sizeof(key.utf8))
-				memcpy(key.utf8, mapped, len);
-		}
-	}
-
-	TermKey *termkey = vis->ui->termkey_get(vis->ui);
-	termkey_strfkey(termkey, vis->key, sizeof(vis->key), &key, TERMKEY_FORMAT_VIM);
-	return vis->key;
-}
-
 bool vis_signal_handler(Vis *vis, int signum, const siginfo_t *siginfo, const void *context) {
 	switch (signum) {
 	case SIGBUS:
@@ -1374,6 +1402,11 @@ bool vis_signal_handler(Vis *vis, int signum, const siginfo_t *siginfo, const vo
 }
 
 int vis_run(Vis *vis) {
+	int i = 0, n;
+	size_t len = 0;
+	char buf[BUFSIZ];
+	char key[VIS_KEY_LENGTH_MAX];
+
 	if (!vis->windows)
 		return EXIT_SUCCESS;
 	if (vis->exit_status != -1)
@@ -1394,7 +1427,7 @@ int vis_run(Vis *vis) {
 	while (vis->running) {
 		fd_set fds;
 		FD_ZERO(&fds);
-		FD_SET(STDIN_FILENO, &fds);
+		FD_SET(vis->ui->input_fd, &fds);
 
 		if (vis->sigbus) {
 			char *name = NULL;
@@ -1443,19 +1476,47 @@ int vis_run(Vis *vis) {
 			vis_die(vis, "Error in mainloop: %s\n", strerror(errno));
 		}
 
-		if (!FD_ISSET(STDIN_FILENO, &fds)) {
+		if (!FD_ISSET(vis->ui->input_fd, &fds)) {
 			if (vis->mode->idle)
 				vis->mode->idle(vis);
 			timeout = NULL;
 			continue;
 		}
 
-		TermKey *termkey = vis->ui->termkey_get(vis->ui);
-		termkey_advisereadable(termkey);
-		const char *key;
+		if ((n = read(vis->ui->input_fd, &buf[i], sizeof buf)) > 0) {
+			len += n;
+		} else if (n == 0) {
+			vis->ui->handle_eof(vis->ui);
+			continue;
+		} else if (errno != EINTR) {
+			continue;
+			// TODO
+		}
 
-		while ((key = getkey(vis)))
+		for (i = 0; i < len; i += n) {
+			if ((n = vis->ui->decode_key(vis->ui, &key[0], &buf[i], len-i)) == 0) {
+				break;
+			}
+			vis_info_hide(vis);
+			bool use_keymap = vis->mode->id != VIS_MODE_INSERT &&
+			                  vis->mode->id != VIS_MODE_REPLACE &&
+			                  !vis->keymap_disabled;
+			vis->keymap_disabled = false;
+			if (use_keymap && n > 1) {
+				const char *mapped = map_get(vis->keymap, key);
+				if (mapped) {
+					size_t m = strlen(mapped);
+					if (m < sizeof(key)) {
+						memcpy(&key[0], mapped, m);
+						key[m] = '\0';
+					}
+				}
+			}
 			vis_keys_push(vis, key, 0, true);
+		}
+		memcpy(&buf[0], &buf[i], len-i);
+		len -= i;
+		i = 0;
 
 		if (vis->mode->idle)
 			timeout = &idle;

@@ -1481,8 +1481,8 @@ static int vis_options_assign(Vis *vis, lua_State *L, const char *key, int next)
 	} else if (strcmp(key, "changecolors") == 0) {
 		vis->change_colors = lua_toboolean(L, next);
 	} else if (strcmp(key, "escdelay") == 0) {
-		TermKey *tk = vis->ui->termkey_get(vis->ui);
-		termkey_set_waittime(tk, luaL_checkint(L, next));
+		luaL_checkint(L, next);
+		vis_info_show(vis, "WARNING: escdelay unimplemented");
 	} else if (strcmp(key, "ignorecase") == 0 || strcmp(key, "ic") == 0) {
 		vis->ignorecase = lua_toboolean(L, next);
 	} else if (strcmp(key, "loadmethod") == 0) {
@@ -1621,8 +1621,8 @@ static int vis_options_index(lua_State *L) {
 			lua_pushboolean(L, vis->change_colors);
 			return 1;
 		} else if (strcmp(key, "escdelay") == 0) {
-			TermKey *tk = vis->ui->termkey_get(vis->ui);
-			lua_pushunsigned(L, termkey_get_waittime(tk));
+			lua_pushunsigned(L, 0);
+			vis_info_show(vis, "WARNING: escdelay unimplemented");
 			return 1;
 		} else if (strcmp(key, "ignorecase") == 0 || strcmp(key, "ic") == 0) {
 			lua_pushboolean(L, vis->ignorecase);

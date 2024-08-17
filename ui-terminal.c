@@ -42,7 +42,6 @@ typedef struct {
 	char info[MAX_WIDTH];     /* info message displayed at the bottom of the screen */
 	int width, height;        /* terminal dimensions available for all windows */
 	enum UiLayout layout;     /* whether windows are displayed horizontally or vertically */
-	TermKey *termkey;         /* libtermkey instance to handle keyboard input (stdin or /dev/tty) */
 	size_t ids;               /* bit mask of in use window ids */
 	size_t styles_size;       /* #bytes allocated for styles array */
 	CellStyle *styles;        /* each window has UI_STYLE_MAX different style definitions */
@@ -72,8 +71,6 @@ struct UiTermWin {
 __attribute__((noreturn)) static void ui_die(Ui *ui, const char *msg, va_list ap) {
 	UiTerm *tui = (UiTerm*)ui;
 	ui_term_backend_free(tui);
-	if (tui->termkey)
-		termkey_stop(tui->termkey);
 	vfprintf(stderr, msg, ap);
 	exit(EXIT_FAILURE);
 }
@@ -581,28 +578,19 @@ static void ui_info_hide(Ui *ui) {
 		tui->info[0] = '\0';
 }
 
-static TermKey *ui_termkey_new(int fd) {
-	TermKey *termkey = termkey_new(fd, UI_TERMKEY_FLAGS);
-	if (termkey)
-		termkey_set_canonflags(termkey, TERMKEY_CANON_DELBS);
-	return termkey;
-}
-
-static TermKey *ui_termkey_reopen(Ui *ui, int fd) {
+static int ui_handle_eof(Ui *ui) {
 	int tty = open("/dev/tty", O_RDWR);
-	if (tty == -1)
-		return NULL;
-	if (tty != fd && dup2(tty, fd) == -1) {
-		close(tty);
-		return NULL;
+	if (tty == -1) {
+		ui_die_msg(ui, "Failed to re-open stdin as /dev/tty: %s\n", errno != 0 ? strerror(errno) : "");
+		return -1;
 	}
-	close(tty);
-	return ui_termkey_new(fd);
-}
-
-static TermKey *ui_termkey_get(Ui *ui) {
-	UiTerm *tui = (UiTerm*)ui;
-	return tui->termkey;
+	if (tty == ui->input_fd) {
+		return 0;
+	}
+	if (dup2(tty, ui->input_fd) == -1) {
+		return -1;
+	}
+	return close(tty);
 }
 
 static void ui_suspend(Ui *ui) {
@@ -616,38 +604,129 @@ static void ui_resume(Ui *ui) {
 	ui_term_backend_resume(tui);
 }
 
-static bool ui_getkey(Ui *ui, TermKeyKey *key) {
+#include "ui-terminal-keytab.h"
+static int ui_decode_key(Ui *ui, char *key, char *buf, size_t len) {
+	// turns input from stdin into <C-V>gUi<F4> ...
+	int i, n;
+	if (len == 0) {
+		key[0] = '\0';
+		return 0;
+	}
+
+	for (i = 0; i < LENGTH(ui_terminal_keytab); i++) {
+		n = strlen(ui_terminal_keytab[i][1]);
+		if (n == 2 && ui_terminal_keytab[i][1][0] == '^' && buf[0] == ui_terminal_keytab[i][1][1]+0x40) {
+			if (buf[0] == (ui_terminal_keytab[i][1][1]^0x40)) {
+				sprintf(&key[0], "<%s>", ui_terminal_keytab[i][2]);
+				return 1;
+			}
+		}
+		if (len < n) {
+			continue;
+		}
+		if (strncmp(ui_terminal_keytab[i][1], &buf[0], n) == 0) {
+			sprintf(&key[0], "<%s>", ui_terminal_keytab[i][2]);
+			return MIN(len, strlen(ui_terminal_keytab[i][1]));
+		}
+	}
+
+	switch (buf[0]) {
+	case 0x1b:
+		sprintf(&key[0], "<Escape>");
+		return 1;
+	case 0x0d:
+		sprintf(&key[0], "<Enter>");
+		return 1;
+	}
+
+	if (len > 1 && ISUTF8(buf[0])) {
+		i = 1;
+		while (i < len && !ISUTF8(buf[i])) {
+			i++;
+		}
+		memcpy(&key[0], &buf[0], i);
+		key[i] = '\0';
+		return i;
+	}
+
+	if (buf[0] < 0x20 && buf[0] + 0x60 >= 'a' && buf[0]+0x60 <= 'z') {
+		sprintf(&key[0], "<C-%c>", buf[0]+0x60);
+		return 1;
+	}
+
+	key[0] = buf[0];
+	key[1] = '\0';
+	return 1;
+}
+
+static int ui_encode_key(Ui *ui, char *buf, size_t len, const char *key) {
+	// turns input from stdin into <C-V>gUi<F4> ...
+	int i, n, j;
+	const char *next;
+
 	UiTerm *tui = (UiTerm*)ui;
-	TermKeyResult ret = termkey_getkey(tui->termkey, key);
-
-	if (ret == TERMKEY_RES_EOF) {
-		termkey_destroy(tui->termkey);
-		errno = 0;
-		if (!(tui->termkey = ui_termkey_reopen(ui, STDIN_FILENO)))
-			ui_die_msg(ui, "Failed to re-open stdin as /dev/tty: %s\n", errno != 0 ? strerror(errno) : "");
-		return false;
+	next = vis_keys_next(tui->vis, key);
+	if (next == NULL) {
+		return 0;
+	} else if (len == 0) {
+		return -1;
 	}
 
-	if (ret == TERMKEY_RES_AGAIN) {
-		struct pollfd fd;
-		fd.fd = STDIN_FILENO;
-		fd.events = POLLIN;
-		if (poll(&fd, 1, termkey_get_waittime(tui->termkey)) == 0)
-			ret = termkey_getkey_force(tui->termkey, key);
+
+	if (next - key == 1) {
+		buf[0] = key[0];
+		return 1;
 	}
 
-	return ret == TERMKEY_RES_KEY;
+	if (next - key == 5) { // <C-a>
+		if (strncmp(key, "<C-", 3) == 0) {
+			buf[0] = key[3]-0x60;
+			return 1;
+		} else if (strncmp(key, "<M-", 3) == 0) {
+			if (len < 2) {
+				return 0;
+			}
+			buf[0] = '\E';
+			buf[1] = key[3];
+		}
+	}
+
+	i = 0;
+	if (key[i] != '<' && (key[i] & 0xC0)  && ISUTF8(key[i])) {
+		for (j = 1; !ISUTF8(key[i+j]); j++);
+		memcpy(&buf[0], &key[i], j);
+		return j;
+	}
+
+	for (i = 0; i < LENGTH(ui_terminal_keytab); i++) {
+		n = strlen(ui_terminal_keytab[i][2]);
+		if (n+2 != next - key) {
+			continue;
+		}
+		if (strncmp(ui_terminal_keytab[i][2], &key[1], n) == 0) {
+			n = strlen(ui_terminal_keytab[i][1]);
+			if (n > len) {
+				return -1;
+			}
+			if (ui_terminal_keytab[i][1][0] == '^') {
+				buf[0] = ui_terminal_keytab[i][1][1]+0x40;
+				return 1;
+			}
+			strncpy(&buf[0], ui_terminal_keytab[i][1], len);
+			return n;
+		}
+	}
+
+	return 0;
 }
 
 static void ui_terminal_save(Ui *ui, bool fscr) {
 	UiTerm *tui = (UiTerm*)ui;
 	ui_term_backend_save(tui, fscr);
-	termkey_stop(tui->termkey);
 }
 
 static void ui_terminal_restore(Ui *ui) {
 	UiTerm *tui = (UiTerm*)ui;
-	termkey_start(tui->termkey);
 	ui_term_backend_restore(tui);
 }
 
@@ -664,16 +743,7 @@ static bool ui_init(Ui *ui, Vis *vis) {
 	}
 
 	errno = 0;
-	if (!(tui->termkey = ui_termkey_new(STDIN_FILENO))) {
-		/* work around libtermkey bug which fails if stdin is /dev/null */
-		if (errno == EBADF) {
-			errno = 0;
-			if (!(tui->termkey = ui_termkey_reopen(ui, STDIN_FILENO)) && errno == ENXIO)
-				tui->termkey = termkey_new_abstract(term, UI_TERMKEY_FLAGS);
-		}
-		if (!tui->termkey)
-			goto err;
-	}
+
 
 	if (!ui_term_backend_init(tui, term))
 		goto err;
@@ -706,7 +776,6 @@ Ui *ui_term_new(void) {
 	*ui = (Ui) {
 		.init = ui_init,
 		.free = ui_term_free,
-		.termkey_get = ui_termkey_get,
 		.suspend = ui_suspend,
 		.resume = ui_resume,
 		.resize = ui_resize,
@@ -721,7 +790,10 @@ Ui *ui_term_new(void) {
 		.die = ui_die,
 		.info = ui_info,
 		.info_hide = ui_info_hide,
-		.getkey = ui_getkey,
+		.input_fd = STDIN_FILENO,
+		.decode_key = ui_decode_key,
+		.encode_key = ui_encode_key,
+		.handle_eof = ui_handle_eof,
 		.terminal_save = ui_terminal_save,
 		.terminal_restore = ui_terminal_restore,
 		.colors = ui_term_backend_colors,
@@ -737,8 +809,6 @@ void ui_term_free(Ui *ui) {
 	while (tui->windows)
 		ui_window_free((UiWin*)tui->windows);
 	ui_term_backend_free(tui);
-	if (tui->termkey)
-		termkey_destroy(tui->termkey);
 	free(tui->cells);
 	free(tui->styles);
 	free(tui);

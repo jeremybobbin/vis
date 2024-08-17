@@ -2,8 +2,6 @@
 #include <stdio.h>
 #include <curses.h>
 
-#define UI_TERMKEY_FLAGS (TERMKEY_FLAG_UTF8|TERMKEY_FLAG_NOTERMIOS)
-
 #define ui_term_backend_init ui_curses_init
 #define ui_term_backend_blit ui_curses_blit
 #define ui_term_backend_clear ui_curses_clear
