@@ -37,51 +37,6 @@ typedef struct Win Win;
 #define VIS_CLIPBOARD "vis-clipboard"
 #endif
 
-/* maximum bytes needed for string representation of a (pseudo) key */
-#define VIS_KEY_LENGTH_MAX 64
-
-static const char *vis_keys_symbolic[] = {
-	"Backspace",
-	"Begin",
-	"Cancel",
-	"Clear",
-	"Close",
-	"Command",
-	"Copy",
-	"Delete",
-	"Down",
-	"End",
-	"Enter",
-	"Escape",
-	"Exit",
-	"Find",
-	"Help",
-	"Home",
-	"Insert",
-	"Left",
-	"Mark",
-	"Message",
-	"Move",
-	"Open",
-	"Options",
-	"PageDown",
-	"PageUp",
-	"Print",
-	"Redo",
-	"Reference",
-	"Refresh",
-	"Replace",
-	"Restart",
-	"Resume",
-	"Right",
-	"Save",
-	"Select",
-	"Space",
-	"Suspend",
-	"Tab",
-	"Up",
-};
-
 /**
  * Editor event handlers.
  */
@@ -968,18 +923,6 @@ int vis_pipe(Vis*, File*, Filerange*, const char *argv[],
  */
 int vis_pipe_collect(Vis*, File*, Filerange*, const char *argv[], char **out, char **err, bool fullscreen);
 
-/**
- * @}
- * @defgroup vis_keys
- * @{
- */
-/**
- * Advance to the start of the next symbolic key.
- *
- * Given the start of a symbolic key, returns a pointer to the start of the one
- * immediately following it.
- */
-const char *vis_keys_next(Vis*, const char *keys);
 /** Convert next symbolic key to an Unicode code point, returns ``-1`` for unknown keys. */
 long vis_keys_codepoint(Vis*, const char *keys);
 /**

@@ -18,6 +18,7 @@
 #include "text-objects.h"
 #include "util.h"
 #include "libutf.h"
+#include "libkey.h"
 #include "array.h"
 #include "buffer.h"
 
