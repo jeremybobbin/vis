@@ -25,6 +25,49 @@
 #include "libkey.h"
 #include "map.h"
 
+const char *vis_keys_symbolic[] = {
+	"Backspace",
+	"Begin",
+	"Cancel",
+	"Clear",
+	"Close",
+	"Command",
+	"Copy",
+	"Delete",
+	"Down",
+	"End",
+	"Enter",
+	"Escape",
+	"Exit",
+	"Find",
+	"Help",
+	"Home",
+	"Insert",
+	"Left",
+	"Mark",
+	"Message",
+	"Move",
+	"Open",
+	"Options",
+	"PageDown",
+	"PageUp",
+	"Print",
+	"Redo",
+	"Reference",
+	"Refresh",
+	"Replace",
+	"Restart",
+	"Resume",
+	"Right",
+	"Save",
+	"Select",
+	"Space",
+	"Suspend",
+	"Tab",
+	"Up",
+	NULL
+};
+
 const char *vis_keys_next(Vis *vis, const char *keys) {
 	if (!keys || !*keys)
 		return NULL;
@@ -90,7 +133,7 @@ const char *vis_keys_next(Vis *vis, const char *keys) {
 			i += j;
 		} else if (keys[i] && ((keys[i] & 0x80) == 0) && keys[i+1] && ((keys[i+1] & 0x80) == 0) && keys[i+1] != '>') {
 			// start, end
-			for (j = 0; j < LENGTH(vis_keys_symbolic); j++) {
+			for (j = 0; vis_keys_symbolic[j]; j++) {
 				if (strncmp(&keys[i], vis_keys_symbolic[j], strlen(vis_keys_symbolic[j])) != 0) {
 					//no-op
 				} else if (keys[i+strlen(vis_keys_symbolic[j])] == '>') {

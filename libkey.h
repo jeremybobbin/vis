@@ -8,47 +8,7 @@
 /* maximum bytes needed for string representation of a (pseudo) key */
 #define VIS_KEY_LENGTH_MAX 64
 
-static const char *vis_keys_symbolic[] = {
-	"Backspace",
-	"Begin",
-	"Cancel",
-	"Clear",
-	"Close",
-	"Command",
-	"Copy",
-	"Delete",
-	"Down",
-	"End",
-	"Enter",
-	"Escape",
-	"Exit",
-	"Find",
-	"Help",
-	"Home",
-	"Insert",
-	"Left",
-	"Mark",
-	"Message",
-	"Move",
-	"Open",
-	"Options",
-	"PageDown",
-	"PageUp",
-	"Print",
-	"Redo",
-	"Reference",
-	"Refresh",
-	"Replace",
-	"Restart",
-	"Resume",
-	"Right",
-	"Save",
-	"Select",
-	"Space",
-	"Suspend",
-	"Tab",
-	"Up",
-};
+extern const char *vis_keys_symbolic[];
 
 /**
  * @}
