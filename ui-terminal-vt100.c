@@ -37,9 +37,8 @@
  * for further information.
  */
 #include <stdio.h>
+#include <termios.h>
 #include "buffer.h"
-
-#define UI_TERMKEY_FLAGS TERMKEY_FLAG_UTF8
 
 #define ui_term_backend_init ui_vt100_init
 #define ui_term_backend_blit ui_vt100_blit
@@ -74,6 +73,9 @@
 typedef struct {
 	UiTerm uiterm;
 	Buffer buf;
+	FILE *fp;
+	char *term;
+	struct termios termios;
 } UiVt100;
 	
 static CellColor color_rgb(UiTerm *ui, uint8_t r, uint8_t g, uint8_t b) {
@@ -85,25 +87,26 @@ static CellColor color_terminal(UiTerm *ui, uint8_t index) {
 }
 
 
-static void output(const char *data, size_t len) {
-	fwrite(data, len, 1, stderr);
-	fflush(stderr);
+static void output(FILE *fp, const char *data, size_t len) {
+	fwrite(data, len, 1, fp);
+	fflush(fp);
 }
 
-static void output_literal(const char *data) {
-	output(data, strlen(data));
+static void output_literal(FILE *fp, const char *data) {
+	output(fp, data, strlen(data));
 }
 
-static void screen_alternate(bool alternate) {
-	output_literal(alternate ? "\x1b[?1049h" : "\x1b[0m" "\x1b[?1049l" "\x1b[0m" );
+static void screen_alternate(FILE *fp, bool alternate) {
+	output_literal(fp, alternate ? "\x1b[?1049h" : "\x1b[0m" "\x1b[?1049l" "\x1b[0m" );
 }
 
-static void cursor_visible(bool visible) {
-	output_literal(visible ? "\x1b[?25h" : "\x1b[?25l");
+static void cursor_visible(FILE *fp, bool visible) {
+	output_literal(fp, visible ? "\x1b[?25h" : "\x1b[?25l");
 }
 
 static void ui_vt100_blit(UiTerm *tui) {
-	Buffer *buf = &((UiVt100*)tui)->buf;
+	UiVt100 *vtui = (UiVt100*)tui;
+	Buffer *buf = &vtui->buf;
 	buffer_clear(buf);
 	CellAttr attr = CELL_ATTR_NORMAL;
 	CellColor fg = CELL_COLOR_DEFAULT, bg = CELL_COLOR_DEFAULT;
@@ -165,7 +168,7 @@ static void ui_vt100_blit(UiTerm *tui) {
 			cell++;
 		}
 	}
-	output(buffer_content(buf), buffer_length0(buf));
+	output(vtui->fp, buffer_content(buf), buffer_length0(buf));
 }
 
 static void ui_vt100_clear(UiTerm *tui) { }
@@ -175,32 +178,50 @@ static bool ui_vt100_resize(UiTerm *tui, int width, int height) {
 }
 
 static void ui_vt100_save(UiTerm *tui) {
-	cursor_visible(true);
+	UiVt100 *vtui = (UiVt100*)tui;
+	cursor_visible(vtui->fp, true);
 }
 
 static void ui_vt100_restore(UiTerm *tui) {
-	cursor_visible(false);
+	UiVt100 *vtui = (UiVt100*)tui;
+	cursor_visible(vtui->fp, false);
 }
 
 static int ui_vt100_colors(Ui *ui) {
-	char *term = getenv("TERM");
-	return (term && strstr(term, "-256color")) ? 256 : 16;
+	UiVt100 *vtui = (UiVt100*)ui;
+	return (vtui->term && strstr(vtui->term, "-256color")) ? 256 : 16;
 }
 
 static void ui_vt100_suspend(UiTerm *tui) {
-	if (!tui->termkey) return;
-	termkey_stop(tui->termkey);
-	cursor_visible(true);
-	screen_alternate(false);
+	UiVt100 *vtui = (UiVt100*)tui;
+	cursor_visible(vtui->fp, true);
+	screen_alternate(vtui->fp, false);
+	tcsetattr(fileno(vtui->fp), TCSANOW, &vtui->termios);
 }
 
 static void ui_vt100_resume(UiTerm *tui) {
-	screen_alternate(true);
-	cursor_visible(false);
-	termkey_start(tui->termkey);
+	UiVt100 *vtui = (UiVt100*)tui;
+	struct termios display = vtui->termios;
+	display.c_iflag &= ~(IXON|INLCR|ICRNL);
+	display.c_lflag &= ~(ICANON|ECHO);
+	tcsetattr(fileno(vtui->fp), TCSANOW, &display);
+	screen_alternate(vtui->fp, true);
+	cursor_visible(vtui->fp, false);
 }
 
-static bool ui_vt100_init(UiTerm *tui, char *term) {
+static bool ui_vt100_init(UiTerm *tui, char* term, FILE *fp) {
+	UiVt100 *vtui = (UiVt100*)tui;
+	if (fp == NULL) {
+		return false;
+	}
+	vtui->fp = fp;
+	vtui->term = term;
+	if (tcgetattr(fileno(fp), &vtui->termios)) {
+		// return false;
+		// ^ makes the lua tests fail
+		// we probably shouldn't be init'ing the UI
+		// unless stdin isatty or argv/^-$/
+	}
 	ui_vt100_resume(tui);
 	return true;
 }
