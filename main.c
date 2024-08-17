@@ -1207,7 +1207,7 @@ static const char *macro_record(Vis *vis, const char *keys, const Arg *arg) {
 	if (!vis_macro_record_stop(vis)) {
 		if (!keys[0])
 			return NULL;
-		const char *next = vis_keys_next(vis, keys);
+		const char *next = vis_keys_next(keys);
 		if (next - keys > 1)
 			return next;
 		enum VisRegister reg = vis_register_from(vis, keys[0]);
@@ -1221,7 +1221,7 @@ static const char *macro_record(Vis *vis, const char *keys, const Arg *arg) {
 static const char *macro_replay(Vis *vis, const char *keys, const Arg *arg) {
 	if (!keys[0])
 		return NULL;
-	const char *next = vis_keys_next(vis, keys);
+	const char *next = vis_keys_next(keys);
 	if (next - keys > 1)
 		return next;
 	enum VisRegister reg = vis_register_from(vis, keys[0]);
@@ -1788,7 +1788,7 @@ static const char *replace(Vis *vis, const char *keys, const Arg *arg) {
 		return NULL;
 	}
 
-	const char *next = vis_keys_next(vis, keys);
+	const char *next = vis_keys_next(keys);
 	if (!next)
 		return NULL;
 	char utf8[UTFmax+1];
@@ -1840,7 +1840,7 @@ static const char *movement_key(Vis *vis, const char *keys, const Arg *arg) {
 		return NULL;
 	}
 
-	const char *next = vis_keys_next(vis, keys);
+	const char *next = vis_keys_next(keys);
 	if (!next)
 		return NULL;
 
@@ -1876,7 +1876,7 @@ static const char *selection_end(Vis *vis, const char *keys, const Arg *arg) {
 static const char *reg(Vis *vis, const char *keys, const Arg *arg) {
 	if (!keys[0])
 		return NULL;
-	const char *next = vis_keys_next(vis, keys);
+	const char *next = vis_keys_next(keys);
 	if (next - keys > 1)
 		return next;
 	enum VisRegister reg = vis_register_from(vis, keys[0]);
@@ -1887,7 +1887,7 @@ static const char *reg(Vis *vis, const char *keys, const Arg *arg) {
 static const char *mark(Vis *vis, const char *keys, const Arg *arg) {
 	if (!keys[0])
 		return NULL;
-	const char *next = vis_keys_next(vis, keys);
+	const char *next = vis_keys_next(keys);
 	if (next - keys > 1)
 		return next;
 	enum VisMark mark = vis_mark_from(vis, keys[0]);
@@ -1954,7 +1954,7 @@ static const char *delete(Vis *vis, const char *keys, const Arg *arg) {
 static const char *insert_register(Vis *vis, const char *keys, const Arg *arg) {
 	if (!keys[0])
 		return NULL;
-	const char *next = vis_keys_next(vis, keys);
+	const char *next = vis_keys_next(keys);
 	if (next - keys > 1)
 		return next;
 	enum VisRegister reg = vis_register_from(vis, keys[0]);
@@ -2033,7 +2033,7 @@ static const char *insert_verbatim(Vis *vis, const char *keys, const Arg *arg) {
 
 		data = buf;
 	} else {
-		const char *next = vis_keys_next(vis, keys);
+		const char *next = vis_keys_next(keys);
 		if (!next)
 			return NULL;
 		if ((len = vis_keys_utf8(vis, keys, buf)) > 0) {
