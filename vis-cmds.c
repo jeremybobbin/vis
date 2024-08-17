@@ -705,8 +705,8 @@ static bool print_option(const char *key, void *value, void *txt) {
 
 static void print_symbolic_keys(Vis *vis, Text *txt) {
 	text_appendf(txt, "  ␣ (a literal \" \" space symbol must be used to refer to <Space>)\n");
-	for (size_t i = 0; i < LENGTH(vis_keys_symbolic); i++) {
-		text_appendf(txt, "  <%s>\n", vis_keys_symbolic[i]);
+	for (char **spp = (char**)vis_keys_symbolic; *spp; spp++) {
+		text_appendf(txt, "  <%s>\n", *spp);
 	}
 }
 
