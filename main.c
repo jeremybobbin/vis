@@ -11,7 +11,6 @@
 #include <sys/types.h>
 
 #include "ui-terminal.h"
-#include "vis.h"
 #include "vis-lua.h"
 #include "text-util.h"
 #include "text-motions.h"
@@ -1781,22 +1780,24 @@ static const char *selections_minus(Vis *vis, const char *keys, const Arg *arg) 
 
 static const char *replace(Vis *vis, const char *keys, const Arg *arg) {
 	if (!keys[0]) {
-		vis_keymap_disable(vis);
 		return NULL;
 	}
 
 	const char *next = vis_keys_next(vis, keys);
 	if (!next)
 		return NULL;
+	char utf8[UTFmax+1];
 
-	char replacement[UTFmax+1];
-	if (!vis_keys_utf8(vis, keys, replacement))
+	if (keys[0] == '\n' || keys[0] == '\r' || strcmp(keys, "<Enter>") == 0) {
+		utf8[0] = '\n';
+		utf8[1] = '\0';
+	} else if (strcmp(keys, "<Escape>") == 0) {
 		return next;
-
-	if (replacement[0] == 0x1b) /* <Escape> */
+	} else if (vis_keys_utf8(vis, keys, utf8) <= 0) {
 		return next;
+	}
 
-	vis_operator(vis, VIS_OP_REPLACE, replacement);
+	vis_operator(vis, VIS_OP_REPLACE, utf8);
 	if (vis_mode_get(vis) == VIS_MODE_OPERATOR_PENDING)
 		vis_motion(vis, VIS_MOVE_CHAR_NEXT);
 	return next;
@@ -1831,16 +1832,23 @@ static const char *operator(Vis *vis, const char *keys, const Arg *arg) {
 
 static const char *movement_key(Vis *vis, const char *keys, const Arg *arg) {
 	if (!keys[0]) {
-		vis_keymap_disable(vis);
 		return NULL;
 	}
 
 	const char *next = vis_keys_next(vis, keys);
 	if (!next)
 		return NULL;
+
 	char utf8[UTFmax+1];
-	if (vis_keys_utf8(vis, keys, utf8))
+	if (strcmp(keys, "<Enter>") == 0) {
+		utf8[0] = '\n';
+		utf8[1] = '\0';
 		vis_motion(vis, arg->i, utf8);
+	} else if (vis_keys_utf8(vis, keys, utf8) > 0) {
+		vis_motion(vis, arg->i, utf8);
+	}
+
+
 	return next;
 }
 
@@ -1959,7 +1967,7 @@ static const char *prompt_show(Vis *vis, const char *keys, const Arg *arg) {
 
 static const char *insert_verbatim(Vis *vis, const char *keys, const Arg *arg) {
 	Rune rune = 0;
-	char buf[4], type = keys[0];
+	char buf[512], type = keys[0];
 	const char *data = NULL;
 	int len = 0, count = 0, base = 0;
 	switch (type) {
@@ -2023,10 +2031,8 @@ static const char *insert_verbatim(Vis *vis, const char *keys, const Arg *arg) {
 		const char *next = vis_keys_next(vis, keys);
 		if (!next)
 			return NULL;
-		if ((rune = vis_keys_codepoint(vis, keys)) != (Rune)-1) {
-			len = runetochar(buf, &rune);
-			if (buf[0] == '\n')
-				buf[0] = '\r';
+		if ((len = vis_keys_utf8(vis, keys, buf)) > 0) {
+			if (buf[0] == '\n') buf[0] = '\r';
 			data = buf;
 		} else {
 			vis_info_show(vis, "Unknown key");
@@ -2239,7 +2245,8 @@ int main(int argc, char *argv[]) {
 		.win_status = vis_lua_win_status,
 	};
 
-	vis = vis_new(ui_term_new(), &event);
+	Ui *ui = ui_term_new();
+	vis = vis_new(ui, &event);
 	if (!vis)
 		return EXIT_FAILURE;
 
@@ -2276,8 +2283,8 @@ int main(int argc, char *argv[]) {
 	}
 
 	sa.sa_handler = SIG_IGN;
-	if (sigaction(SIGPIPE, &sa, NULL) == -1 || sigaction(SIGQUIT, &sa, NULL) == -1)
-		vis_die(vis, "Failed to ignore signals\n");
+	if (sigaction(SIGPIPE, &sa, NULL) == -1)
+		vis_die(vis, "Failed to ignore SIGPIPE\n");
 
 	sigset_t blockset;
 	sigemptyset(&blockset);
@@ -2327,7 +2334,7 @@ int main(int argc, char *argv[]) {
 				if (len == -1)
 					vis_die(vis, "Can not read from stdin\n");
 				text_snapshot(txt);
-				int fd = open("/dev/tty", O_RDWR);
+				int fd = ui->open(ui);
 				if (fd == -1)
 					vis_die(vis, "Can not reopen stdin\n");
 				dup2(fd, STDIN_FILENO);

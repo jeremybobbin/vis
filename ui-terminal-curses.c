@@ -2,8 +2,6 @@
 #include <stdio.h>
 #include <curses.h>
 
-#define UI_TERMKEY_FLAGS (TERMKEY_FLAG_UTF8|TERMKEY_FLAG_NOTERMIOS)
-
 #define ui_term_backend_init ui_curses_init
 #define ui_term_backend_blit ui_curses_blit
 #define ui_term_backend_clear ui_curses_clear
@@ -258,19 +256,20 @@ static int ui_curses_colors(Ui *ui) {
 	return COLORS;
 }
 
-static bool ui_curses_init(UiTerm *tui, char *term) {
-	if (!newterm(term, stderr, stdin)) {
-		snprintf(tui->info, sizeof(tui->info), "Warning: unknown term `%s'", term);
-		if (!newterm(strstr(term, "-256color") ? "xterm-256color" : "xterm", stderr, stdin))
-			return false;
+static bool ui_curses_init(UiTerm *tui, char *term, FILE *fp) {
+	for (int tries = 0; !newterm(term, fp, NULL) && tries < 1; tries++) {
+		snprintf(tui->info, sizeof(tui->info), "Warning: unknown term '%s'", term);
+		if (strstr(term, "-256color")) {
+			term = "xterm-256color";
+		} else {
+			term = "xterm";
+		}
 	}
 	start_color();
 	use_default_colors();
-	cbreak();
-	noecho();
-	nonl();
-	keypad(stdscr, TRUE);
-	meta(stdscr, TRUE);
+	typeahead(-1); // so that ncurses doesn't poll stdin
+	raw(); // for preventing control-c, control-s default behavior
+	keypad(stdscr, TRUE); // has terminal send different codes for things lke <C-End>
 	curs_set(0);
 	return true;
 }

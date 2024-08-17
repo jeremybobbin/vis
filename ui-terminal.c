@@ -5,20 +5,20 @@
 #include <limits.h>
 #include <ctype.h>
 #include <locale.h>
-#include <poll.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
-#include <sys/stat.h>
 #include <fcntl.h>
 #include <termios.h>
 #include <errno.h>
 
 #include "ui-terminal.h"
+#include "ui-terminal-keytab.h"
 #include "vis.h"
 #include "vis-core.h"
 #include "text.h"
 #include "util.h"
 #include "text-util.h"
+#include "map.h"
 
 #ifndef DEBUG_UI
 #define DEBUG_UI 0
@@ -32,6 +32,9 @@
 
 #define MAX_WIDTH 1024
 #define MAX_HEIGHT 1024
+#define RESUME  (ui_terminal_control[1][1])
+#define SUSPEND (ui_terminal_control[0][1])
+
 typedef struct UiTermWin UiTermWin;
 
 typedef struct {
@@ -42,12 +45,13 @@ typedef struct {
 	char info[MAX_WIDTH];     /* info message displayed at the bottom of the screen */
 	int width, height;        /* terminal dimensions available for all windows */
 	enum UiLayout layout;     /* whether windows are displayed horizontally or vertically */
-	TermKey *termkey;         /* libtermkey instance to handle keyboard input (stdin or /dev/tty) */
 	size_t ids;               /* bit mask of in use window ids */
 	size_t styles_size;       /* #bytes allocated for styles array */
 	CellStyle *styles;        /* each window has UI_STYLE_MAX different style definitions */
 	size_t cells_size;        /* #bytes allocated for 2D grid (grows only) */
 	Cell *cells;              /* 2D grid of cells, at least as large as current terminal size */
+	Map *keymap;              /* ansi-escape-sequence -> vis-keys */
+	bool use_keymap;
 } UiTerm;
 
 struct UiTermWin {
@@ -71,8 +75,6 @@ struct UiTermWin {
 __attribute__((noreturn)) static void ui_die(Ui *ui, const char *msg, va_list ap) {
 	UiTerm *tui = (UiTerm*)ui;
 	ui_term_backend_free(tui);
-	if (tui->termkey)
-		termkey_stop(tui->termkey);
 	vfprintf(stderr, msg, ap);
 	exit(EXIT_FAILURE);
 }
@@ -575,101 +577,282 @@ static void ui_info_hide(Ui *ui) {
 		tui->info[0] = '\0';
 }
 
-static TermKey *ui_termkey_new(int fd) {
-	TermKey *termkey = termkey_new(fd, UI_TERMKEY_FLAGS);
-	if (termkey)
-		termkey_set_canonflags(termkey, TERMKEY_CANON_DELBS);
-	return termkey;
-}
-
-static TermKey *ui_termkey_reopen(Ui *ui, int fd) {
-	int tty = open("/dev/tty", O_RDWR);
-	if (tty == -1)
-		return NULL;
-	if (tty != fd && dup2(tty, fd) == -1) {
-		close(tty);
-		return NULL;
+static int ui_open(Ui *ui) {
+	int fd = open("/dev/tty", O_RDWR);
+	if (fd == -1) {
+		ui_die_msg(ui, "Failed to open /dev/tty: %s\n", errno != 0 ? strerror(errno) : "");
 	}
-	close(tty);
-	return ui_termkey_new(fd);
-}
-
-static TermKey *ui_termkey_get(Ui *ui) {
-	UiTerm *tui = (UiTerm*)ui;
-	return tui->termkey;
+	return fd;
 }
 
 static void ui_suspend(Ui *ui) {
 	UiTerm *tui = (UiTerm*)ui;
 	ui_term_backend_suspend(tui);
+	if (write(STDERR_FILENO, SUSPEND, sizeof(SUSPEND)-1) != sizeof(SUSPEND)-1) {
+		snprintf(tui->info, sizeof(tui->info), "Failed to suspend display: '%s'", errno ? strerror(errno) : "");
+	}
 	kill(0, SIGTSTP);
 }
 
 static void ui_resume(Ui *ui) {
 	UiTerm *tui = (UiTerm*)ui;
+	if (write(STDERR_FILENO, RESUME, sizeof(RESUME)-1) != sizeof(RESUME)-1) {
+		snprintf(tui->info, sizeof(tui->info), "Failed to resume display: '%s'", errno ? strerror(errno) : "");
+	}
 	ui_term_backend_resume(tui);
 }
 
-static bool ui_getkey(Ui *ui, TermKeyKey *key) {
+static int ui_decode_key(Ui *ui, char *key, char *buf, size_t len) {
+	// turns input from stdin into <C-V>gUi<F4> ...
 	UiTerm *tui = (UiTerm*)ui;
-	TermKeyResult ret = termkey_getkey(tui->termkey, key);
-
-	if (ret == TERMKEY_RES_EOF) {
-		termkey_destroy(tui->termkey);
-		errno = 0;
-		if (!(tui->termkey = ui_termkey_reopen(ui, STDIN_FILENO)))
-			ui_die_msg(ui, "Failed to re-open stdin as /dev/tty: %s\n", errno != 0 ? strerror(errno) : "");
-		return false;
+	size_t i, n;
+	if (len == 0) {
+		key[0] = '\0';
+		return 0;
 	}
 
-	if (ret == TERMKEY_RES_AGAIN) {
-		struct pollfd fd;
-		fd.fd = STDIN_FILENO;
-		fd.events = POLLIN;
-		if (poll(&fd, 1, termkey_get_waittime(tui->termkey)) == 0)
-			ret = termkey_getkey_force(tui->termkey, key);
+	char *k;
+	const Map *tmp, *map;
+
+	if (tui->use_keymap||1) {
+		for (i = 1, map = tui->keymap, n = 1; n && i < len; i++) {
+			tmp = map_prefix_sized(map, &buf[0], i);
+			if ((n = map_count(tmp))) {
+				map = tmp;
+			}
+		}
 	}
 
-	return ret == TERMKEY_RES_KEY;
+	// if we've seen the whole buffer, then return the closest match
+	if (n && (k = map_get_sized(map, &buf[0], i))) {
+		sprintf(key, "<%s>", k);
+		return i;
+	}
+
+	i = 0;
+
+	if (len > 1 && buf[0] == 0x1b) {
+		// might be an <M-...> key
+		if ((k = map_get_sized(tui->keymap, &buf[1], len-1))) {
+			// <M-Home>, <M-End>, <M-Backspace>
+			sprintf(&key[0], "<M-%s>", k);
+			return len;
+		} else if (buf[1] < 0x20 && isprint(buf[1]|0x60)) {
+			// <M-C-u>, <M-C-a>, <M-C-^>
+			sprintf(&key[0], "<M-C-%c>", (buf[1]|(isalpha(buf[1]|0x40) ? 0x60 : 0x40)));
+			return 2;
+		} else if (isprint(buf[1])) {
+			sprintf(&key[0], "<M-%c>", buf[1]);
+			return 2;
+		}
+	}
+
+	if (buf[0] < 0x20 && isprint(buf[0]|0x60)) {
+		sprintf(&key[0], "<C-%c>", (buf[0]|(isalpha(buf[0]|0x40) ? 0x60 : 0x40)));
+		return 1;
+	}
+
+	if (len > 1 && ISUTF8(buf[0])) {
+		i = 1;
+		// TODO - could be an incomplete sequence if the buffer was too small
+		while (i < len && !ISUTF8(buf[i])) {
+			i++;
+		}
+		memcpy(&key[0], &buf[0], i);
+		key[i] = '\0';
+		return i;
+	}
+
+	key[0] = buf[0];
+	key[1] = '\0';
+	return 1;
+}
+
+static int ui_encode_key(Ui *ui, char *buf, size_t len, const char *key) {
+	// turns input from stdin into <C-V>gUi<F4> ...
+	int i, j;
+	const char *next;
+
+	UiTerm *tui = (UiTerm*)ui;
+	next = vis_keys_next(tui->vis, key);
+	if (next == NULL) {
+		return 0;
+	} else if (len == 0) {
+		return -1;
+	}
+
+
+	if (next - key == 1) {
+		buf[0] = key[0];
+		return 1;
+	}
+
+	if (next - key == 5) { // <C-a>
+		if (strncmp(key, "<C-", 3) == 0) {
+			buf[0] = key[3]-0x60;
+			return 1;
+		} else if (strncmp(key, "<M-", 3) == 0) {
+			if (len < 2) {
+				return 0;
+			}
+			buf[0] = '\xbf';
+			buf[1] = key[3];
+		}
+	}
+
+	i = 0;
+	if (key[i] != '<' && (key[i] & 0xC0)  && ISUTF8(key[i])) {
+		for (j = 1; !ISUTF8(key[i+j]); j++);
+		memcpy(&buf[0], &key[i], j);
+		return j;
+	}
+
+	return 0;
 }
 
 static void ui_terminal_save(Ui *ui) {
 	UiTerm *tui = (UiTerm*)ui;
 	ui_term_backend_save(tui);
-	termkey_stop(tui->termkey);
+	if (write(STDERR_FILENO, SUSPEND, sizeof(SUSPEND)-1) != sizeof(SUSPEND)-1) {
+		snprintf(tui->info, sizeof(tui->info), "Failed to suspend display: '%s'", errno ? strerror(errno) : "");
+	}
 }
 
 static void ui_terminal_restore(Ui *ui) {
 	UiTerm *tui = (UiTerm*)ui;
-	termkey_start(tui->termkey);
 	ui_term_backend_restore(tui);
+	if (write(STDERR_FILENO, RESUME, sizeof(RESUME)-1) != sizeof(RESUME)-1) {
+		snprintf(tui->info, sizeof(tui->info), "Failed to resume display: '%s'", errno ? strerror(errno) : "");
+	}
+}
+
+static bool map_put_recursive(Map *m, const char *k, const char *v) {
+	char *sp;
+	while ((sp = map_get(m, v))) {
+		map_delete(m, v);
+		v = sp;
+	}
+	return map_put(m, k, v);
+}
+
+static bool ui_terminal_keymap_add(Ui* ui, const char *k, const char *v) {
+	return map_put_recursive(((UiTerm*)ui)->keymap, k, v);
+}
+
+static void ui_terminal_keymap_iterate(Ui* ui, bool (*fn)(const char *, void *, void *), void *data) {
+	map_iterate(((UiTerm*)ui)->keymap, fn, data);
+}
+
+static void ui_terminal_keymap_disable(Ui* ui) {
+	((UiTerm*)ui)->use_keymap = false;
+}
+
+static void ui_terminal_keymap_enable(Ui* ui) {
+	((UiTerm*)ui)->use_keymap = true;
+}
+
+static int ui_terminal_keymap_count(Ui* ui) {
+	return map_count(((UiTerm*)ui)->keymap);
 }
 
 static bool ui_init(Ui *ui, Vis *vis) {
 	UiTerm *tui = (UiTerm*)ui;
 	tui->vis = vis;
+	tui->use_keymap = true;
 
 	setlocale(LC_CTYPE, "");
 
 	char *term = getenv("TERM");
 	if (!term) {
 		term = "xterm";
-		setenv("TERM", term, 1);
+	}
+
+	if (!(tui->keymap = map_new()))
+		goto err;
+
+	char buf[VIS_KEY_LENGTH_MAX*2];
+	const char *k;
+	int i;
+	// excerpt from infocmp output:
+	// kf15=\E[1;2R, kf16=\E[1;2S, kf17=\E[15;2~, kf18=\E[17;2~,
+	//
+	// so basically:
+	//
+	// static infocmp_to_vis = {
+	// 	{ "kf5", "<F5>" }
+	// 	...
+	// }
+	//
+	// while read line from infocmp:
+	// 	value, key = split(line, "=") # value: kf15, key: \E[1;2R
+	// 	viskey = infocmp_to_vis.get(key)
+	// 	keymap.insert(key, viskey)
+	//
+	// deallocated buffers allocated when running infocmp
+	//
+	// no use running once & keeping infocmp output in memory
+	// map implementation allocates a node per key's char...
+	// \E is a node, [ is a node, 1, ;, 2, S, etc;
+
+	// excerpt from ui_terminal_keytab in ui-terminal-keytab.h:
+	// { "kHOM",   "\E[1;2H",   "S-Home"          },  // key_shome      #2  shifted home key
+	//
+	// ui_terminal_keytab[i][0]: "kHOM"    - infocmp's key protocol (refer to termcap(5) for more info)
+	// ui_terminal_keytab[i][1]: "\E[1;2H" - escape sequence given by the terminal emulator. vis reads "\E[1;2H" from stdin when "<S-Home>" is pressed
+	// ui_terminal_keytab[i][2]: "S-Home"  - vis's human-readable key protocol without <>
+
+	// another excerpt from ui_terminal_keytab:
+	// 	{ "kbs",    "^?",        "Backspace"       },  // key_backspace  kb  backspace key
+	// ^? (from infocmp) is human-readable for a ? with the 7th bit flipped(?)
+	// try typing the following keystrokes into `od -x`
+	// E<Enter><C-v><C-e><C-d>
+	//
+	// followed by:
+	// ?<Enter><C-v><Backspace>
+	//
+	// You will notice
+	// - "Verbatim" <C-e> is echoed back as ^E
+	// - "Verbatim" <Backspace is echoed back as ^?
+	// - E is 0x45 & ^E/<C-e> is    0x05
+	// - ? is 0x3f & ^?/<Backspace> 0x7f
+	//
+	// it seems backwards to me, but I guess the pattern is just to flip the 0x40 bit
+	for (i = 0; i < LENGTH(ui_terminal_keytab); i++) {
+		if (!map_put_recursive(tui->keymap, ui_terminal_keytab[i][0], ui_terminal_keytab[i][2])) {
+			ui_die_msg(ui, "map put buf '%s' '%s'\n", buf, ui_terminal_keytab[i][2]);
+			goto err;
+		}
+	}
+
+	for (i = 0; i < LENGTH(ui_terminal_keytab); i++) {
+		if (ui_terminal_keytab[i][1][0] == '^' && ui_terminal_keytab[i][1][1]) {
+			buf[0] = ui_terminal_keytab[i][1][1]^0x40;
+			buf[1] = '\0';
+			k = (const char*) buf;
+		} else {
+			k = ui_terminal_keytab[i][1];
+		}
+		// this may error if there's a bug in infocmp code - we'll just ignore it.
+		map_put_recursive(tui->keymap, k, ui_terminal_keytab[i][0]);
+	}
+
+	// same way libtermkey does it
+	if (!(
+		map_put_recursive(tui->keymap, "\x1b", "Escape") && // ???, 27, 0x1b, 0o33
+		map_put_recursive(tui->keymap, "\r",   "Enter")  && // \n,  10, 0xa,  0o12,
+		map_put_recursive(tui->keymap, "\t",   "Tab")       // \t,  9,  0x9,  0o11,
+	)) {
+		ui_die_msg(ui, "failed to map Enter, Escape or Delete\n");
+		goto err;
 	}
 
 	errno = 0;
-	if (!(tui->termkey = ui_termkey_new(STDIN_FILENO))) {
-		/* work around libtermkey bug which fails if stdin is /dev/null */
-		if (errno == EBADF) {
-			errno = 0;
-			if (!(tui->termkey = ui_termkey_reopen(ui, STDIN_FILENO)) && errno == ENXIO)
-				tui->termkey = termkey_new_abstract(term, UI_TERMKEY_FLAGS);
-		}
-		if (!tui->termkey)
-			goto err;
-	}
 
-	if (!ui_term_backend_init(tui, term))
+
+	if (write(STDERR_FILENO, RESUME, sizeof(RESUME)-1) != sizeof(RESUME)-1) {
+		goto err;
+	}
+	if (!ui_term_backend_init(tui, term, stderr))
 		goto err;
 	ui_resize(ui);
 	return true;
@@ -693,8 +876,12 @@ Ui *ui_term_new(void) {
 	Ui *ui = (Ui*)tui;
 	*ui = (Ui) {
 		.init = ui_init,
+		.remap_key = ui_terminal_keymap_add,
+		.keymap_iterate = ui_terminal_keymap_iterate,
+		.disable_keymap = ui_terminal_keymap_disable,
+		.enable_keymap = ui_terminal_keymap_enable,
+		.keys_mapped = ui_terminal_keymap_count,
 		.free = ui_term_free,
-		.termkey_get = ui_termkey_get,
 		.suspend = ui_suspend,
 		.resume = ui_resume,
 		.resize = ui_resize,
@@ -708,7 +895,9 @@ Ui *ui_term_new(void) {
 		.die = ui_die,
 		.info = ui_info,
 		.info_hide = ui_info_hide,
-		.getkey = ui_getkey,
+		.decode_key = ui_decode_key,
+		.encode_key = ui_encode_key,
+		.open = ui_open,
 		.terminal_save = ui_terminal_save,
 		.terminal_restore = ui_terminal_restore,
 		.colors = ui_term_backend_colors,
@@ -724,8 +913,7 @@ void ui_term_free(Ui *ui) {
 	while (tui->windows)
 		ui_window_free((UiWin*)tui->windows);
 	ui_term_backend_free(tui);
-	if (tui->termkey)
-		termkey_destroy(tui->termkey);
+	map_free(tui->keymap);
 	free(tui->cells);
 	free(tui->styles);
 	free(tui);

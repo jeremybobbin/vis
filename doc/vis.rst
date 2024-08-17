@@ -26,8 +26,7 @@ Input
 
 The editor core processes input through a sequences of symbolic keys:
 
- * Special keys such as ``<Enter>``, ``<Tab>`` or ``<Backspace>`` as reported by
-   `termkey_strfkey <http://www.leonerd.org.uk/code/libtermkey/doc/termkey_strfkey.3.html>`_.
+ * Special keys such as ``<Enter>``, ``<Tab>`` or ``<Backspace>``.
 
    .. note:: The prefixes ``C-``, ``S-`` and ``M-`` are used to denote the ``Ctrl``,
              ``Shift`` and ``Alt`` modifiers, respectively.

@@ -3,7 +3,9 @@
 
 #include <stdbool.h>
 #include <stdarg.h>
-#include <termkey.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include "map.h"
 
 /* enable large file optimization for files larger than: */
 #define UI_LARGE_FILE_SIZE (1 << 25)
@@ -98,10 +100,28 @@ struct Ui {
 	void (*redraw)(Ui*);
 	void (*suspend)(Ui*);
 	void (*resume)(Ui*);
-	bool (*getkey)(Ui*, TermKeyKey*);
+	void (*doupdates)(Ui*, bool);
+	// example:
+	// char key[VIS_KEY_LENGTH_MAX];
+	// char *buf = "\r\r\r\r";
+	// int n = decode_key(ui, key, buf, sizeof(buf)-1);
+	// assert(n == 1); // 1 byte was read from buf
+	// assert(buf[0] == 0x0d);
+	bool  (*remap_key)(Ui*, const char *, const char *);
+	void  (*disable_keymap)(Ui*);
+	void  (*enable_keymap)(Ui*);
+	void  (*keymap_iterate)(Ui*, bool (*fn)(const char *, void *, void *), void*);
+	int  (*keys_mapped)(Ui*);
+	int  (*decode_key)(Ui*, char *key, char *buf, size_t len);
+	// example:
+	// char buf[4096];
+	// int n = encode_key(ui, buf, sizeof(buf), "<Enter><Home>aaaaaa<Escape>");
+	// assert(n == 1);
+	// assert(buf[0] == 0x0d);
+	int  (*encode_key)(Ui*, char *buf, size_t len, const char *key);
+	int  (*open)(Ui*);
 	void (*terminal_save)(Ui*);
 	void (*terminal_restore)(Ui*);
-	TermKey* (*termkey_get)(Ui*);
 	int (*colors)(Ui*);
 };
 

@@ -39,10 +39,6 @@ jobs:
       shell: bash
       run: mkdir $HOME && git config --global core.autocrlf input
 
-    - name: Libtermkey
-      shell: bash
-      run: make dependency/build/libtermkey-install
-
     - name: Build
       shell: bash
       run: ./configure CFLAGS="-I$(pwd)/dependency/install/usr/include" LDFLAGS="-L$(pwd)/dependency/install/usr/lib" ${{ matrix.config }} && make

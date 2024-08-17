@@ -40,6 +40,48 @@ typedef struct Win Win;
 /* maximum bytes needed for string representation of a (pseudo) key */
 #define VIS_KEY_LENGTH_MAX 64
 
+static const char *vis_keys_symbolic[] = {
+	"Backspace",
+	"Begin",
+	"Cancel",
+	"Clear",
+	"Close",
+	"Command",
+	"Copy",
+	"Delete",
+	"Down",
+	"End",
+	"Enter",
+	"Escape",
+	"Exit",
+	"Find",
+	"Help",
+	"Home",
+	"Insert",
+	"Left",
+	"Mark",
+	"Message",
+	"Move",
+	"Open",
+	"Options",
+	"PageDown",
+	"PageUp",
+	"Print",
+	"Redo",
+	"Reference",
+	"Refresh",
+	"Replace",
+	"Restart",
+	"Resume",
+	"Right",
+	"Save",
+	"Select",
+	"Space",
+	"Suspend",
+	"Tab",
+	"Up",
+};
+
 /**
  * Editor event handlers.
  */
@@ -936,12 +978,12 @@ const char *vis_keys_next(Vis*, const char *keys);
 long vis_keys_codepoint(Vis*, const char *keys);
 /**
  * Convert next symbolic key to a UTF-8 sequence.
- * @return Whether conversion was successful, if not ``utf8`` is left unmodified.
+ * @return how many characters needed to represent the sequence, returns ``-1`` for unknown keys.
  * @rst
  * .. note:: Guarantees that ``utf8`` is NUL terminated on success.
  * @endrst
  */
-bool vis_keys_utf8(Vis*, const char *keys, char utf8[static UTFmax+1]);
+int vis_keys_utf8(Vis*, const char *keys, char utf8[static UTFmax+1]);
 /** Process symbolic keys as if they were user originated input. */
 void vis_keys_feed(Vis*, const char *keys);
 /**
