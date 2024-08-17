@@ -1110,7 +1110,6 @@ int vis_keys_utf8(Vis *vis, const char *keys, char utf8[static UTFmax+1]) {
 }
 
 typedef struct {
-	Vis *vis;
 	size_t len;         // length of the prefix
 	int count;          // how many bindings can complete this prefix
 	bool angle_bracket; // does the prefix end with '<'
@@ -1122,7 +1121,7 @@ static bool isprefix(const char *key, void *value, void *data) {
 		completion->count++;
 	} else {
 		const char *start = key + completion->len;
-		const char *end = vis_keys_next(completion->vis, start);
+		const char *end = vis_keys_next(start);
 		if (end && start + 1 == end)
 			completion->count++;
 	}
@@ -1137,7 +1136,7 @@ static void vis_keys_process(Vis *vis, size_t pos) {
 
 	while (cur && *cur) {
 
-		if (!(end = (char*)vis_keys_next(vis, cur))) {
+		if (!(end = (char*)vis_keys_next(cur))) {
 			buffer_remove(buf, keys - buf->data, strlen(keys));
 			return;
 		}
@@ -1162,7 +1161,6 @@ static void vis_keys_process(Vis *vis, size_t pos) {
 
 				const Map *pmap = map_prefix(mode->bindings, start);
 				PrefixCompletion completions = {
-					.vis = vis,
 					.len = cur - start,
 					.count = 0,
 					.angle_bracket = !strcmp(cur, "<"),
@@ -1220,7 +1218,7 @@ static void vis_keys_process(Vis *vis, size_t pos) {
 				}
 			}
 			if (!action && vis->mode->input) {
-				end = (char*)vis_keys_next(vis, start);
+				end = (char*)vis_keys_next(start);
 				vis->mode->input(vis, start, end - start);
 			}
 			start = cur = end;
@@ -1458,7 +1456,7 @@ static void macro_replay_internal(Vis *vis, const Macro *macro) {
 	size_t pos = buffer_length0(&vis->input_queue);
 	for (char *key = macro->data, *next; key; key = next) {
 		char tmp;
-		next = (char*)vis_keys_next(vis, key);
+		next = (char*)vis_keys_next(key);
 		if (next) {
 			tmp = *next;
 			*next = '\0';

@@ -1,29 +1,8 @@
-#include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
-#include <strings.h>
-#include <signal.h>
-#include <stdarg.h>
-#include <stdio.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <limits.h>
-#include <ctype.h>
-#include <time.h>
-#include <sys/select.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <sys/stat.h>
-#include <sys/ioctl.h>
-#include <sys/mman.h>
-#include <pwd.h>
-#include <libgen.h>
 
-#include "vis.h"
-#include "vis-core.h"
-#include "libutf.h"
 #include "libkey.h"
-#include "map.h"
+#include "libutf.h"
+#include "util.h"
 
 const char *vis_keys_symbolic[] = {
 	"Backspace",
@@ -73,7 +52,7 @@ const char *vis_keys_symbolic[] = {
 	NULL
 };
 
-const char *vis_keys_next(Vis *vis, const char *keys) {
+const char *vis_keys_next(const char *keys) {
 	if (!keys || !*keys)
 		return NULL;
 	int i = 0, j;
@@ -86,11 +65,7 @@ const char *vis_keys_next(Vis *vis, const char *keys) {
 			while (end - start < VIS_KEY_LENGTH_MAX && *end && *end != '>')
 				end++;
 			if (end > start && *end == '>') {
-				char key[VIS_KEY_LENGTH_MAX];
-				memcpy(key, start, end - start);
-				key[end - start] = '\0';
-				if (map_get(vis->actions, key))
-					return end + 1;
+				return end + 1;
 			}
 		}
 		for (;;) {

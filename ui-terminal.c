@@ -673,8 +673,7 @@ static int ui_encode_key(Ui *ui, char *buf, size_t len, const char *key) {
 	int i, j;
 	const char *next;
 
-	UiTerm *tui = (UiTerm*)ui;
-	next = vis_keys_next(tui->vis, key);
+	next = vis_keys_next(key);
 	if (next == NULL) {
 		return 0;
 	} else if (len == 0) {
