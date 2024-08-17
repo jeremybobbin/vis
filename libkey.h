@@ -1,7 +1,6 @@
 #ifndef LIBKEY_H
 #define LIBKEY_H
 
-#include <signal.h>
 #include <stddef.h>
 #include <stdbool.h>
 
@@ -21,6 +20,6 @@ extern const char *vis_keys_symbolic[];
  * Given the start of a symbolic key, returns a pointer to the start of the one
  * immediately following it.
  */
-const char *vis_keys_next(Vis*, const char *keys);
+const char *vis_keys_next(const char *keys);
 
 #endif
