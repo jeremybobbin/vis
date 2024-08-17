@@ -6,6 +6,7 @@
 /vis-single
 /vis-single-payload.inc
 /vis-digraph
+/ui-terminal-keytab.h
 *.css
 *.gcda
 *.gcno
