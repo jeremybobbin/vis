@@ -91,7 +91,7 @@ sam.o: sam.h vis-core.h buffer.h text.h text-motions.h text-objects.h text-regex
 $(REGEX_SRC:.c=.o): text-regex.h $(REGEX_SRC)
 text-util.o: text-util.h util.h
 ui-terminal-vt100.o: buffer.h
-ui-terminal.o: ui-terminal-keytab.h vis.h vis-core.h text.h util.h text-util.h ui-terminal-curses.c ui-terminal-vt100.c
+ui-terminal.o: libkey.o libkey.h ui-terminal-keytab.h vis.h vis-core.h text.h util.h text-util.h ui-terminal-curses.c ui-terminal-vt100.c
 view.o: view.h text.h text-motions.h text-util.h util.h
 vis-cmds.o: vis-lua.h sam.c
 vis-lua.o: vis-lua.h vis-core.h text-motions.h util.h
@@ -104,8 +104,9 @@ vis-operators.o: vis-core.h text-motions.h text-objects.h text-util.h util.h
 vis-prompt.o: vis-core.h text-motions.h text-objects.h text-util.h
 vis-text-objects.o: vis-core.h text-objects.h util.h
 
+libkey.o: map.o map.h vis.o
 vis.o: vis.h text-util.h text-motions.h text-objects.h util.h vis-core.h sam.h ui.h
-main.o: ui-terminal.h vis.h vis-lua.h text-util.h text-motions.h text-objects.h util.h libutf.h array.h buffer.h config.h
+main.o: libkey.h ui-terminal.h vis.h vis-lua.h text-util.h text-motions.h text-objects.h util.h libutf.h array.h buffer.h config.h libkey.o
 
 vis: \
 	$(REGEX_SRC:.c=.o) \
@@ -130,6 +131,7 @@ vis: \
 	vis-text-objects.o \
 	vis-operators.o \
 	libutf.o \
+	libkey.o \
 	ui-terminal.o \
 	main.o \
 	vis.o

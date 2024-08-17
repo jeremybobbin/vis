@@ -11,6 +11,7 @@
 #include "array.h"
 #include "buffer.h"
 #include "util.h"
+#include "libkey.h"
 
 /* a mode contains a set of key bindings which are currently valid.
  *
