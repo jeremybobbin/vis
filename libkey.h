@@ -31,6 +31,18 @@ const char *vis_keys_next(const char *keys);
  * abc<Home>: 4
  * abc<Home: 8
  */
-const char *vis_keys_next(const char *keys);
+const char *vis_keys_next_sized(const char *keys, size_t len);
+/**
+ * Get length of the first key found keys
+ *
+ * printf("abc: %d\n", vis_keys_next_len("abc"));
+ * printf("abc<Home>: %d\n", vis_keys_next_len("abc<Home>"));
+ * printf("abc<Home: %d\n", vis_keys_next_len("abc<Home"));
+ * printf("<Home>: %d\n", vis_keys_next_len("<Home>"));
+ * abc: 1
+ * abc<Home>: 1
+ * abc<Home: 1
+ * <Home>: 6
+ */
 
 #endif
