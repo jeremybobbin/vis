@@ -16,6 +16,7 @@ typedef struct Map Map;
 Map *map_new(void);
 /** Lookup a value, returns ``NULL`` if not found. */
 void *map_get(const Map*, const char *key);
+void *map_get_sized(const Map*, const char *key, size_t len);
 /**
  * Get first element of the map, or ``NULL`` if empty.
  * @param key Updated with the key of the first element.
@@ -29,6 +30,7 @@ void *map_first(const Map*, const char **key);
  *         is set to ``ENOENT``.
  */
 void *map_closest(const Map*, const char *prefix);
+void *map_closest_sized(const Map*, const char *prefix, size_t len);
 /**
  * Check whether the map contains the given prefix.
  * whether it can be extended to match a key of a map element.
@@ -40,6 +42,10 @@ bool map_contains(const Map*, const char *prefix);
  *         already appears in the map (``errno = EEXIST``).
  */
 bool map_put(Map*, const char *key, const void *value);
+/**
+ * map_put for non-null-terminated strings
+ */
+bool map_put_sized(Map*, const char *key, size_t len, const void *value);
 /**
  * Remove a map element.
  * @return The removed entry or ``NULL`` if no such element exists.
@@ -63,6 +69,10 @@ void map_iterate(const Map*, bool (*handle)(const char *key, void *value, void *
  * @endrst
  */
 const Map *map_prefix(const Map*, const char *prefix);
+
+const Map *map_prefix_sized(const Map*, const char *prefix, size_t len);
+/** Get the number of entries in the map */
+int map_count(const Map*);
 /** Test whether the map is empty (contains no elements). */
 bool map_empty(const Map*);
 /** Empty the map. */
