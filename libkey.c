@@ -145,3 +145,10 @@ const char *vis_keys_next(const char *keys) {
 }
 
 
+int vis_keys_count(char *keys) {
+	int n = 0;
+	for (; keys && *keys; keys = vis_keys_next(keys))
+		n++;
+	return n;
+}
+

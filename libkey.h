@@ -22,5 +22,16 @@ extern const char *vis_keys_symbolic[];
  * immediately following it.
  */
 const char *vis_keys_next(const char *keys);
+/**
+ * Count keys
+ *
+ * printf("abc: %d\n", vis_keys_count("abc"));
+ * printf("abc<Home>: %d\n", vis_keys_count("abc<Home>"));
+ * printf("abc<Home: %d\n", vis_keys_count("abc<Home"));
+ * abc: 3
+ * abc<Home>: 4
+ * abc<Home: 8
+ */
+const char *vis_keys_next(const char *keys);
 
 #endif
