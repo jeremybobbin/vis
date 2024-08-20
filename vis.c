@@ -1127,6 +1127,22 @@ static bool isprefix(const char *key, void *value, void *data) {
 	}
 	return completion->count == 1;
 }
+/*
+	problem with map closest
+		- assumptions:
+			- map(..., "<C-", compile)
+			- keys input: <C-r>
+		- map_closest outputs: "<C-"
+		- outcome: runs compile, replaces character under cursor with '>'
+		- solution: int vis_keys_count(char *keys);
+			- vis_keys_count("<C-")   returns 3
+			- vis_keys_count("<C-r>") returns 1
+			- input = "<C-r>";
+			- k, v = map_closest(input)  // k = "<C-", v = compile
+			- if (vis_keys_count(k) > vis_keys_count(input)) {
+			      // the binding looks like a vis-key sequence, but it's just an unbound key
+			  }
+*/
 
 static void vis_keys_process(Vis *vis, size_t pos) {
 	Buffer *buf = &vis->input_queue;
