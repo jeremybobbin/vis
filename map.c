@@ -245,6 +245,20 @@ static bool first(const char *key, void *value, void *data)
 	return false;
 }
 
+static bool count(const char *key, void *value, void *data)
+{
+	int *n = data;
+	(*n)++;
+	return true;
+}
+
+int map_count(const Map *map)
+{
+	int n = 0;
+	map_iterate(map, count, &n);
+	return n;
+}
+
 void *map_first(const Map *map, const char **key)
 {
 	KeyValue kv = { 0 };

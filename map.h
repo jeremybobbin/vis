@@ -63,6 +63,8 @@ void map_iterate(const Map*, bool (*handle)(const char *key, void *value, void *
  * @endrst
  */
 const Map *map_prefix(const Map*, const char *prefix);
+/** Get the number of entries in the map */
+int map_count(const Map*);
 /** Test whether the map is empty (contains no elements). */
 bool map_empty(const Map*);
 /** Empty the map. */
