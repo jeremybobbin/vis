@@ -32,9 +32,8 @@ struct Node {
 };
 
 /* Closest key to this in a non-empty map. */
-static Map *closest(Map *n, const char *key)
+static Map *closest_sized(Map *n, const char *key, size_t len)
 {
-	size_t len = strlen(key);
 	const uint8_t *bytes = (const uint8_t *)key;
 
 	/* Anything with NULL value is an internal node. */
@@ -50,27 +49,44 @@ static Map *closest(Map *n, const char *key)
 	return n;
 }
 
-void *map_get(const Map *map, const char *key)
+static Map *closest(Map *n, const char *key)
+{
+	return closest_sized(n, key, strlen(key));
+}
+
+// TODO: unhack
+#define MIN(a, b) (a) < (b) ? (a) : (b)
+void *map_get_sized(const Map *map, const char *key, size_t len)
 {
 	/* Not empty map? */
 	if (map->u.n) {
-		Map *n = closest((Map *)map, key);
-		if (strcmp(key, n->u.s) == 0)
+		Map *n = closest_sized((Map *)map, key, len);
+		if (strncmp(key, n->u.s, MIN(strlen(n->u.s)+1, len)) == 0 && strlen(n->u.s) == len)
 			return n->v;
 	}
 	return NULL;
 }
 
-void *map_closest(const Map *map, const char *prefix)
+void *map_get(const Map *map, const char *key)
+{
+	return map_get_sized(map, key, strlen(key));
+}
+
+void *map_closest_sized(const Map *map, const char *prefix, size_t len)
 {
 	errno = 0;
-	void *v = map_get(map, prefix);
+	void *v = map_get_sized(map, prefix, len);
 	if (v)
 		return v;
-	const Map *m = map_prefix(map, prefix);
+	const Map *m = map_prefix_sized(map, prefix, len);
 	if (map_empty(m))
 		errno = ENOENT;
 	return m->v;
+}
+
+void *map_closest(const Map *map, const char *prefix)
+{
+	return map_closest_sized(map, prefix, strlen(prefix));
 }
 
 bool map_contains(const Map *map, const char *prefix)
@@ -78,9 +94,8 @@ bool map_contains(const Map *map, const char *prefix)
 	return !map_empty(map_prefix(map, prefix));
 }
 
-bool map_put(Map *map, const char *k, const void *value)
+bool map_put_sized(Map *map, const char *k, size_t len, const void *value)
 {
-	size_t len = strlen(k);
 	const uint8_t *bytes = (const uint8_t *)k;
 	Map *n;
 	Node *newn;
@@ -93,7 +108,7 @@ bool map_put(Map *map, const char *k, const void *value)
 		return false;
 	}
 
-	if (!(key = strdup(k))) {
+	if (!(key = strndup(k, len))) {
 		errno = ENOMEM;
 		return false;
 	}
@@ -161,6 +176,12 @@ bool map_put(Map *map, const char *k, const void *value)
 	n->v = NULL;
 	return true;
 }
+
+bool map_put(Map *map, const char *k, const void *value)
+{
+	return map_put_sized(map, k, strlen(k), value);
+}
+
 
 void *map_delete(Map *map, const char *key)
 {
@@ -245,6 +266,20 @@ static bool first(const char *key, void *value, void *data)
 	return false;
 }
 
+static bool count(const char *key, void *value, void *data)
+{
+	int *n = data;
+	(*n)++;
+	return true;
+}
+
+int map_count(const Map *map)
+{
+	int n = 0;
+	map_iterate(map, count, &n);
+	return n;
+}
+
 void *map_first(const Map *map, const char **key)
 {
 	KeyValue kv = { 0 };
@@ -254,10 +289,9 @@ void *map_first(const Map *map, const char **key)
 	return kv.value;
 }
 
-const Map *map_prefix(const Map *map, const char *prefix)
+const Map *map_prefix_sized(const Map *map, const char *prefix, size_t len)
 {
 	const Map *n, *top;
-	size_t len = strlen(prefix);
 	const uint8_t *bytes = (const uint8_t *)prefix;
 
 	/* Empty map -> return empty map. */
@@ -286,6 +320,11 @@ const Map *map_prefix(const Map *map, const char *prefix)
 	}
 
 	return top;
+}
+
+const Map *map_prefix(const Map *map, const char *prefix)
+{
+	return map_prefix_sized(map, prefix, strlen(prefix));
 }
 
 static void clear(Map n)
