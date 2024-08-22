@@ -234,7 +234,16 @@ enum {
 	VIS_ACTION_OPERATOR_YANK,
 	VIS_ACTION_OPERATOR_SHIFT_LEFT,
 	VIS_ACTION_OPERATOR_SHIFT_RIGHT,
-	VIS_ACTION_COUNT,
+	VIS_ACTION_COUNT_ZERO,
+	VIS_ACTION_COUNT_ONE,
+	VIS_ACTION_COUNT_TWO,
+	VIS_ACTION_COUNT_THREE,
+	VIS_ACTION_COUNT_FOUR,
+	VIS_ACTION_COUNT_FIVE,
+	VIS_ACTION_COUNT_SIX,
+	VIS_ACTION_COUNT_SEVEN,
+	VIS_ACTION_COUNT_EIGHT,
+	VIS_ACTION_COUNT_NINE,
 	VIS_ACTION_INSERT_NEWLINE,
 	VIS_ACTION_INSERT_TAB,
 	VIS_ACTION_INSERT_VERBATIM,
@@ -791,10 +800,55 @@ static const KeyAction vis_action[] = {
 		VIS_HELP("Shift right operator")
 		operator, { .i = VIS_OP_SHIFT_RIGHT }
 	},
-	[VIS_ACTION_COUNT] = {
-		"vis-count",
+	[VIS_ACTION_COUNT_ZERO] = {
+		"vis-count-zero",
 		VIS_HELP("Count specifier")
-		count,
+		count, { .i = 0 }
+	},
+	[VIS_ACTION_COUNT_ONE] = {
+		"vis-count-one",
+		VIS_HELP("Count specifier")
+		count, { .i = 1 }
+	},
+	[VIS_ACTION_COUNT_TWO] = {
+		"vis-count-two",
+		VIS_HELP("Count specifier")
+		count, { .i = 2 }
+	},
+	[VIS_ACTION_COUNT_THREE] = {
+		"vis-count-three",
+		VIS_HELP("Count specifier")
+		count, { .i = 3 }
+	},
+	[VIS_ACTION_COUNT_FOUR] = {
+		"vis-count-four",
+		VIS_HELP("Count specifier")
+		count, { .i = 4 }
+	},
+	[VIS_ACTION_COUNT_FIVE] = {
+		"vis-count-five",
+		VIS_HELP("Count specifier")
+		count, { .i = 5 }
+	},
+	[VIS_ACTION_COUNT_SIX] = {
+		"vis-count-six",
+		VIS_HELP("Count specifier")
+		count, { .i = 6 }
+	},
+	[VIS_ACTION_COUNT_SEVEN] = {
+		"vis-count-seven",
+		VIS_HELP("Count specifier")
+		count, { .i = 7 }
+	},
+	[VIS_ACTION_COUNT_EIGHT] = {
+		"vis-count-eight",
+		VIS_HELP("Count specifier")
+		count, { .i = 8 }
+	},
+	[VIS_ACTION_COUNT_NINE] = {
+		"vis-count-nine",
+		VIS_HELP("Count specifier")
+		count, { .i = 9 }
 	},
 	[VIS_ACTION_INSERT_NEWLINE] = {
 		"vis-insert-newline",
@@ -1805,14 +1859,12 @@ static const char *replace(Vis *vis, const char *keys, const Arg *arg) {
 }
 
 static const char *count(Vis *vis, const char *keys, const Arg *arg) {
-	int digit = keys[-1] - '0';
+	int digit = arg->i;
 	int count = vis_count_get_default(vis, 0);
-	if (0 <= digit && digit <= 9) {
-		if (digit == 0 && count == 0)
-			vis_motion(vis, VIS_MOVE_LINE_BEGIN);
-		else
-			vis_count_set(vis, count * 10 + digit);
-	}
+	if (digit == 0 && count == 0)
+		vis_motion(vis, VIS_MOVE_LINE_BEGIN);
+	else
+		vis_count_set(vis, count * 10 + digit);
 	return keys;
 }
 
