@@ -146,7 +146,7 @@ static void vis_mode_normal_enter(Vis *vis, Mode *old) {
 		return;
 	if (old != mode_get(vis, VIS_MODE_INSERT) && old != mode_get(vis, VIS_MODE_REPLACE))
 		return;
-	if (vis->autoindent && strcmp(vis->key_prev, "<Enter>") == 0) {
+	if (vis->autoindent && strcmp(vis->key_prev, "<vis-insert-newline>") == 0) {
 		Text *txt = win->file->text;
 		for (Selection *s = view_selections(win->view); s; s = view_selections_next(s)) {
 			size_t pos = view_cursors_pos(s);
