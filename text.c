@@ -76,16 +76,10 @@ struct Revision {
 	size_t seq;             /* a unique, strictly increasing identifier */
 };
 
-typedef struct {
-	size_t pos;             /* position in bytes from start of file */
-	size_t lineno;          /* line number in file i.e. number of '\n' in [0, pos) */
-} LineCache;
-
 /* The main struct holding all information of a given file */
 struct Text {
 	Array blocks;           /* blocks which hold text content */
 	Piece *pieces;          /* all pieces which have been allocated, used to free them */
-	Piece *cache;           /* most recently modified piece */
 	Piece begin, end;       /* sentinel nodes which always exists but don't hold any data */
 	Revision *history;        /* undo tree */
 	Revision *current_revision; /* revision holding all file changes until a snapshot is performed */
@@ -93,16 +87,10 @@ struct Text {
 	Revision *saved_revision;   /* the last revision at the time of the save operation */
 	size_t size;            /* current file content size in bytes */
 	struct stat info;       /* stat as probed at load time */
-	LineCache lines;        /* mapping between absolute pos in bytes and logical line breaks */
 };
 
 /* block management */
 static const char *block_store(Text*, const char *data, size_t len);
-/* cache layer */
-static void cache_piece(Text *txt, Piece *p);
-static bool cache_contains(Text *txt, Piece *p);
-static bool cache_insert(Text *txt, Piece *p, size_t off, const char *data, size_t len);
-static bool cache_delete(Text *txt, Piece *p, size_t off, size_t len);
 /* piece management */
 static Piece *piece_alloc(Text *txt);
 static void piece_free(Piece *p);
@@ -119,7 +107,6 @@ static void change_free(Change *c);
 static Revision *revision_alloc(Text *txt);
 static void revision_free(Revision *rev);
 /* logical line counting cache */
-static void lineno_cache_invalidate(LineCache *cache);
 static size_t lines_skip_forward(Text *txt, size_t pos, size_t lines, size_t *lines_skipped);
 static size_t lines_count(Text *txt, size_t pos, size_t len);
 
@@ -137,68 +124,6 @@ static const char *block_store(Text *txt, const char *data, size_t len) {
 		}
 	}
 	return block_append(blk, data, len);
-}
-
-/* cache the given piece if it is the most recently changed one */
-static void cache_piece(Text *txt, Piece *p) {
-	Block *blk = array_get_ptr(&txt->blocks, array_length(&txt->blocks)-1);
-	if (!blk || p->data < blk->data || p->data + p->len != blk->data + blk->len)
-		return;
-	txt->cache = p;
-}
-
-/* check whether the given piece was the most recently modified one */
-static bool cache_contains(Text *txt, Piece *p) {
-	Block *blk = array_get_ptr(&txt->blocks, array_length(&txt->blocks)-1);
-	Revision *rev = txt->current_revision;
-	if (!blk || !txt->cache || txt->cache != p || !rev || !rev->change)
-		return false;
-
-	Piece *start = rev->change->new.start;
-	Piece *end = rev->change->new.end;
-	bool found = false;
-	for (Piece *cur = start; !found; cur = cur->next) {
-		if (cur == p)
-			found = true;
-		if (cur == end)
-			break;
-	}
-
-	return found && p->data + p->len == blk->data + blk->len;
-}
-
-/* try to insert a chunk of data at a given piece offset. The insertion is only
- * performed if the piece is the most recently changed one. The length of the
- * piece, the span containing it and the whole text is adjusted accordingly */
-static bool cache_insert(Text *txt, Piece *p, size_t off, const char *data, size_t len) {
-	if (!cache_contains(txt, p))
-		return false;
-	Block *blk = array_get_ptr(&txt->blocks, array_length(&txt->blocks)-1);
-	size_t bufpos = p->data + off - blk->data;
-	if (!block_insert(blk, bufpos, data, len))
-		return false;
-	p->len += len;
-	txt->current_revision->change->new.len += len;
-	txt->size += len;
-	return true;
-}
-
-/* try to delete a chunk of data at a given piece offset. The deletion is only
- * performed if the piece is the most recently changed one and the whole
- * affected range lies within it. The length of the piece, the span containing it
- * and the whole text is adjusted accordingly */
-static bool cache_delete(Text *txt, Piece *p, size_t off, size_t len) {
-	if (!cache_contains(txt, p))
-		return false;
-	Block *blk = array_get_ptr(&txt->blocks, array_length(&txt->blocks)-1);
-	size_t end;
-	size_t bufpos = p->data + off - blk->data;
-	if (!addu(off, len, &end) || end > p->len || !block_delete(blk, bufpos, len))
-		return false;
-	p->len -= len;
-	txt->current_revision->change->new.len -= len;
-	txt->size -= len;
-	return true;
 }
 
 /* initialize a span and calculate its length */
@@ -304,8 +229,6 @@ static void piece_free(Piece *p) {
 		p->global_next->global_prev = p->global_prev;
 	if (p->text->pieces == p)
 		p->text->pieces = p->global_next;
-	if (p->text->cache == p)
-		p->text->cache = NULL;
 	free(p);
 }
 
@@ -418,16 +341,12 @@ bool text_insert(Text *txt, size_t pos, const char *data, size_t len) {
 		return true;
 	if (pos > txt->size)
 		return false;
-	if (pos < txt->lines.pos)
-		lineno_cache_invalidate(&txt->lines);
 
 	Location loc = piece_get_intern(txt, pos);
 	Piece *p = loc.piece;
 	if (!p)
 		return false;
 	size_t off = loc.off;
-	if (cache_insert(txt, p, off, data, len))
-		return true;
 
 	Change *c = change_alloc(txt, pos);
 	if (!c)
@@ -465,7 +384,6 @@ bool text_insert(Text *txt, size_t pos, const char *data, size_t len) {
 		span_init(&c->old, p, p);
 	}
 
-	cache_piece(txt, new);
 	span_swap(txt, &c->old, &c->new);
 	return true;
 }
@@ -502,7 +420,6 @@ size_t text_undo(Text *txt) {
 		return pos;
 	pos = revision_undo(txt, txt->history);
 	txt->history = rev;
-	lineno_cache_invalidate(&txt->lines);
 	return pos;
 }
 
@@ -515,7 +432,6 @@ size_t text_redo(Text *txt) {
 		return pos;
 	pos = revision_redo(txt, rev);
 	txt->history = rev;
-	lineno_cache_invalidate(&txt->lines);
 	return pos;
 }
 
@@ -538,7 +454,7 @@ static size_t history_traverse_to(Text *txt, Revision *rev) {
 	bool changed = history_change_branch(rev);
 	if (!changed) {
 		if (rev->seq == txt->history->seq) {
-			return txt->lines.pos;
+			return rev->change->pos;
 		} else if (rev->seq > txt->history->seq) {
 			while (txt->history != rev)
 				pos = text_redo(txt);
@@ -594,7 +510,6 @@ Text *text_loadat_method(int dirfd, const char *filename, enum TextLoadMethod me
 		goto out;
 	Block *block = NULL;
 	array_init(&txt->blocks);
-	lineno_cache_invalidate(&txt->lines);
 	if (filename) {
 		errno = 0;
 		block = block_load(dirfd, filename, method, &txt->info);
@@ -663,16 +578,12 @@ bool text_delete(Text *txt, size_t pos, size_t len) {
 	size_t pos_end;
 	if (!addu(pos, len, &pos_end) || pos_end > txt->size)
 		return false;
-	if (pos < txt->lines.pos)
-		lineno_cache_invalidate(&txt->lines);
 
 	Location loc = piece_get_intern(txt, pos);
 	Piece *p = loc.piece;
 	if (!p)
 		return false;
 	size_t off = loc.off;
-	if (cache_delete(txt, p, off, len))
-		return true;
 	Change *c = change_alloc(txt, pos);
 	if (!c)
 		return false;
@@ -752,7 +663,6 @@ bool text_snapshot(Text *txt) {
 	if (txt->current_revision)
 		txt->last_revision = txt->current_revision;
 	txt->current_revision = NULL;
-	txt->cache = NULL;
 	return true;
 }
 
@@ -904,48 +814,15 @@ static size_t lines_skip_forward(Text *txt, size_t pos, size_t lines, size_t *li
 	return pos;
 }
 
-static void lineno_cache_invalidate(LineCache *cache) {
-	cache->pos = 0;
-	cache->lineno = 1;
-}
-
 size_t text_pos_by_lineno(Text *txt, size_t lineno) {
 	size_t lines_skipped;
-	LineCache *cache = &txt->lines;
 	if (lineno <= 1)
 		return 0;
-	if (lineno > cache->lineno) {
-		cache->pos = lines_skip_forward(txt, cache->pos, lineno - cache->lineno, &lines_skipped);
-		cache->lineno += lines_skipped;
-	} else if (lineno < cache->lineno) {
-	#if 0
-		// TODO does it make sense to scan memory backwards here?
-		size_t diff = cache->lineno - lineno;
-		if (diff < lineno) {
-			lines_skip_backward(txt, cache->pos, diff);
-		} else
-	#endif
-		cache->pos = lines_skip_forward(txt, 0, lineno - 1, &lines_skipped);
-		cache->lineno = lines_skipped + 1;
-	}
-	return cache->lineno == lineno ? cache->pos : EPOS;
+	return lines_skip_forward(txt, 0, lineno - 1, &lines_skipped);
 }
 
 size_t text_lineno_by_pos(Text *txt, size_t pos) {
-	LineCache *cache = &txt->lines;
-	if (pos > txt->size)
-		pos = txt->size;
-	if (pos < cache->pos) {
-		size_t diff = cache->pos - pos;
-		if (diff < pos)
-			cache->lineno -= lines_count(txt, pos, diff);
-		else
-			cache->lineno = lines_count(txt, 0, pos) + 1;
-	} else if (pos > cache->pos) {
-		cache->lineno += lines_count(txt, cache->pos, pos - cache->pos);
-	}
-	cache->pos = text_line_begin(txt, pos);
-	return cache->lineno;
+	return lines_count(txt, 0, pos) + 1;
 }
 
 Mark text_mark_set(Text *txt, size_t pos) {
