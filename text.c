@@ -58,6 +58,7 @@ struct Change {
 	Span old;               /* all pieces which are being modified/swapped out by the change */
 	Span new;               /* all pieces which are introduced/swapped in by the change */
 	size_t pos;             /* absolute position at which the change occurred */
+	ssize_t off;            /* offset into the piece(old) which was changed */
 	Change *next;           /* next change which is part of the same revision */
 	Change *prev;           /* previous change which is part of the same revision */
 };
@@ -80,10 +81,30 @@ typedef struct {
 	size_t pos;             /* position in bytes from start of file */
 	size_t lineno;          /* line number in file i.e. number of '\n' in [0, pos) */
 } LineCache;
+/* the structure which underlies the "Mark" type
+ * this tracks a position in text across modifications
+ * "the cat says meow"
+ *      ^   ^
+ *      a   b
+ * a & b are monuments
+ * delete "cat", insert "dog", delete "says meow", insert "roars"
+ *
+ * Monents a & b still exist, so we will (lazily) evaluate where they
+ * would be now, given the current state of the text, which ideally, is:
+ * "the lion roars"
+ *      ^    ^
+ *      a    b
+ */
+typedef struct Monument Monument;
+struct Monument {
+	Location loc;
+	Revision *rev;
+};
 
 /* The main struct holding all information of a given file */
 struct Text {
 	Array blocks;           /* blocks which hold text content */
+	Array monuments;        /* locations in the text preserved accross changes */
 	Piece *pieces;          /* all pieces which have been allocated, used to free them */
 	Piece *cache;           /* most recently modified piece */
 	Piece begin, end;       /* sentinel nodes which always exists but don't hold any data */
@@ -113,7 +134,7 @@ static Location piece_get_extern(const Text *txt, size_t pos);
 static void span_init(Span *span, Piece *start, Piece *end);
 static void span_swap(Text *txt, Span *old, Span *new);
 /* change management */
-static Change *change_alloc(Text *txt, size_t pos);
+static Change *change_alloc(Text *txt, size_t pos, ssize_t off);
 static void change_free(Change *c);
 /* revision management */
 static Revision *revision_alloc(Text *txt);
@@ -358,7 +379,7 @@ static Location piece_get_extern(const Text *txt, size_t pos) {
 
 /* allocate a new change, associate it with current revision or a newly
  * allocated one if none exists. */
-static Change *change_alloc(Text *txt, size_t pos) {
+static Change *change_alloc(Text *txt, size_t pos, ssize_t off) {
 	Revision *rev = txt->current_revision;
 	if (!rev) {
 		rev = revision_alloc(txt);
@@ -369,6 +390,7 @@ static Change *change_alloc(Text *txt, size_t pos) {
 	if (!c)
 		return NULL;
 	c->pos = pos;
+	c->off = off;
 	c->next = rev->change;
 	if (rev->change)
 		rev->change->prev = c;
@@ -429,7 +451,7 @@ bool text_insert(Text *txt, size_t pos, const char *data, size_t len) {
 	if (cache_insert(txt, p, off, data, len))
 		return true;
 
-	Change *c = change_alloc(txt, pos);
+	Change *c = change_alloc(txt, pos, off);
 	if (!c)
 		return false;
 
@@ -595,6 +617,7 @@ Text *text_loadat_method(int dirfd, const char *filename, enum TextLoadMethod me
 	Block *block = NULL;
 	array_init(&txt->blocks);
 	lineno_cache_invalidate(&txt->lines);
+	array_init_sized(&txt->monuments, sizeof(Monument));
 	if (filename) {
 		errno = 0;
 		block = block_load(dirfd, filename, method, &txt->info);
@@ -615,7 +638,7 @@ Text *text_loadat_method(int dirfd, const char *filename, enum TextLoadMethod me
 	piece_init(&txt->end, p, NULL, NULL, 0);
 	txt->size = p->len;
 	/* write an empty revision */
-	change_alloc(txt, EPOS);
+	change_alloc(txt, EPOS, 0);
 	text_snapshot(txt);
 	txt->saved_revision = txt->history;
 
@@ -673,7 +696,7 @@ bool text_delete(Text *txt, size_t pos, size_t len) {
 	size_t off = loc.off;
 	if (cache_delete(txt, p, off, len))
 		return true;
-	Change *c = change_alloc(txt, pos);
+	Change *c = change_alloc(txt, pos, off);
 	if (!c)
 		return false;
 
@@ -949,25 +972,125 @@ size_t text_lineno_by_pos(Text *txt, size_t pos) {
 }
 
 Mark text_mark_set(Text *txt, size_t pos) {
-	if (pos == txt->size)
-		return (Mark)&txt->end;
-	Location loc = piece_get_extern(txt, pos);
-	if (!loc.piece)
-		return EMARK;
-	return (Mark)(loc.piece->data + loc.off);
+	Monument m;
+	if (pos == txt->size) {
+		m.loc.piece = &txt->end;
+		m.loc.off = 0;
+	} else {
+		Location loc = piece_get_extern(txt, pos);
+		if (!loc.piece)
+			return EMARK;
+		m.loc = loc;
+	}
+
+	m.rev = txt->history;
+	if (!array_add(&txt->monuments, &m)) {
+		return EPOS;
+	}
+	return array_length(&txt->monuments);
 }
 
 size_t text_mark_get(const Text *txt, Mark mark) {
 	size_t cur = 0;
+	if (mark == EPOS) {
+		return EMARK;
+	}
+	Monument *m = array_get(&txt->monuments, mark-1);
+	Piece *mp;
+	size_t off = 0;
 
-	if (mark == EMARK)
-		return EPOS;
-	if (mark == (Mark)&txt->end)
+	if (!m) {
+		return -1;
+	}
+
+	off = m->loc.off;
+	mp = m->loc.piece;
+
+	if (mp == &txt->end) {
 		return txt->size;
+	}
+
+	if (mp == &txt->begin) {
+		return 0;
+	}
+
+	Revision *r, *pr;
+	for (pr = r = m->rev; r; pr = r, r = r->next) {
+		Change *c = r->change;
+		if (!c) {
+			continue;
+		}
+		while (c->next)
+			c = c->next;
+		for (; c; c = c->prev) {
+			if (!c->old.start || !c->old.end || !c->new.start || !c->new.end) {
+				continue;
+			}
+			if (c->old.len < c->new.len) {
+				// text inserted
+				continue;
+			}
+			// text deleted
+			if (mp != c->old.start && mp != c->old.end) {
+				// irrelevant change
+				continue;
+			}
+
+			if (c->old.start == c->old.end && c->new.start == c->new.end) {
+				// prefix/suffix deleted from one piece
+				if (off < c->old.len - c->new.len) {
+					// mark was in the deleted prefix
+					mp =  c->new.start;
+					off = 0;
+					continue;
+				}
+			}
+			if (off == c->new.start->len) {
+				// mark was on the end of a piece & was deleted
+				// stick it on the start of the next piece
+				off = 0;
+				mp = c->new.end;
+				continue;
+
+				//  |1-----------
+				//  the cat purrs
+				//      ^
+				//      a
+				// x/cat/ c/lion/
+				//  the  purrs
+				//      ^
+				//      a
+				//  points at the space
+				//  |1--|2--|1+8--
+				//  the lion purrs
+				//
+				// monument should now point at 'l' instead
+			}
+			if (mp == c->old.start && c->old.start->data == c->new.start->data && off < c->new.start->len) {
+				mp = c->new.start;
+				continue;
+			}
+		}
+
+	}
+
+	if (txt->history->seq < pr->seq)
+		while (pr && pr != txt->history) {
+			pr = pr->prev;
+		}
+	else {
+		while (pr && pr != txt->history) {
+			pr = pr->next;
+		}
+	}
+
+	if (pr != txt->history)
+		return 0;
 
 	for (Piece *p = txt->begin.next; p->next; p = p->next) {
-		Mark start = (Mark)(p->data);
-		Mark end = start + p->len;
+		char *start = (char *)(p->data);
+		char *end = start + p->len;
+		char *mark = (char *)mp->data + off;
 		if (start <= mark && mark < end)
 			return cur + (mark - start);
 		cur += p->len;
