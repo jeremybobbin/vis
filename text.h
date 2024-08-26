@@ -10,7 +10,7 @@
 #include <sys/stat.h>
 
 /** A mark. */
-typedef uintptr_t Mark;
+typedef size_t Mark;
 
 /** An invalid mark, lookup of which will yield ``EPOS``. */
 #define EMARK ((Mark)0)

@@ -76,9 +76,30 @@ struct Revision {
 	size_t seq;             /* a unique, strictly increasing identifier */
 };
 
+/* the structure which underlies the "Mark" type
+ * this tracks a position in text across modifications
+ * "the cat says meow"
+ *      ^   ^
+ *      a   b
+ * a & b are monuments
+ * delete "cat", insert "dog", delete "says meow", insert "roars"
+ *
+ * Monents a & b still exist, so we will (lazily) evaluate where they
+ * would be now, given the current state of the text, which ideally, is:
+ * "the lion roars"
+ *      ^    ^
+ *      a    b
+ */
+typedef struct Monument Monument;
+struct Monument {
+	Location loc;
+	Revision *rev;
+};
+
 /* The main struct holding all information of a given file */
 struct Text {
 	Array blocks;           /* blocks which hold text content */
+	Array monuments;        /* locations in the text preserved accross changes */
 	Piece *pieces;          /* all pieces which have been allocated, used to free them */
 	Piece begin, end;       /* sentinel nodes which always exists but don't hold any data */
 	Revision *history;        /* undo tree */
@@ -510,6 +531,7 @@ Text *text_loadat_method(int dirfd, const char *filename, enum TextLoadMethod me
 		goto out;
 	Block *block = NULL;
 	array_init(&txt->blocks);
+	array_init_sized(&txt->monuments, sizeof(Monument));
 	if (filename) {
 		errno = 0;
 		block = block_load(dirfd, filename, method, &txt->info);
@@ -826,25 +848,173 @@ size_t text_lineno_by_pos(Text *txt, size_t pos) {
 }
 
 Mark text_mark_set(Text *txt, size_t pos) {
-	if (pos == txt->size)
-		return (Mark)&txt->end;
-	Location loc = piece_get_extern(txt, pos);
-	if (!loc.piece)
-		return EMARK;
-	return (Mark)(loc.piece->data + loc.off);
+	Monument m;
+	if (pos == txt->size) {
+		m.loc.piece = &txt->end;
+		m.loc.off = 0;
+	} else {
+		Location loc = piece_get_extern(txt, pos);
+		if (!loc.piece)
+			return EMARK;
+		m.loc = loc;
+	}
+
+	m.rev = txt->history;
+	if (!array_add(&txt->monuments, &m)) {
+		return EPOS;
+	}
+	return array_length(&txt->monuments);
 }
 
 size_t text_mark_get(const Text *txt, Mark mark) {
 	size_t cur = 0;
+	if (mark == EPOS) {
+		return EMARK;
+	}
+	Monument *m = array_get(&txt->monuments, mark-1);
+	Piece *mp;
+	size_t off = 0;
 
-	if (mark == EMARK)
-		return EPOS;
-	if (mark == (Mark)&txt->end)
+	if (!m) {
+		return -1;
+	}
+
+	off = m->loc.off;
+	mp = m->loc.piece;
+
+	if (mp == &txt->end) {
 		return txt->size;
+	}
+
+	if (mp == &txt->begin) {
+		return 0;
+	}
+
+	Revision *r, *pr = NULL, *tr = txt->history;
+	pr = r = m->rev;
+
+	if (!r || !tr) {
+	} else if (r->seq <= tr->seq && m->rev->next) {
+		// mark is from the past
+		// following it forward through history
+		for (pr = r = m->rev->next; r && tr && r->seq <= tr->seq; pr = r, r = r->next) {
+			Change *c = r->change;
+			if (!c) {
+				continue;
+			}
+			while (c->next)
+				c = c->next;
+			for (; c; c = c->prev) {
+				if (!c->old.start || !c->old.end || !c->new.start || !c->new.end) {
+					continue;
+				}
+				if (c->old.len > c->new.len) {
+					// text inserted
+					//continue;
+				}
+				// text deleted
+				if (mp != c->old.start && mp != c->old.end) {
+					// irrelevant change
+					continue;
+				}
+
+				if (c->old.start == c->old.end && c->new.start == c->new.end) {
+					// prefix/suffix deleted from one piece
+					if (off < c->old.len - c->new.len) {
+						// mark was in the deleted prefix
+						mp =  c->new.start;
+						off = 0;
+						continue;
+					}
+				}
+				if (off == c->new.start->len) {
+					// mark was on the end of a piece & was deleted
+					// stick it on the start of the next piece
+					off = 0;
+					mp = c->new.end;
+					continue;
+
+					//  |1-----------
+					//  the cat purrs
+					//      ^
+					//      a
+					// x/cat/ c/lion/
+					//  the  purrs
+					//      ^
+					//      a
+					//  points at the space
+					//  |1--|2--|1+8--
+					//  the lion purrs
+					//
+					// monument should now point at 'l' instead
+				}
+				if (mp == c->old.start && c->old.start->data == c->new.start->data && off < c->new.start->len) {
+					mp = c->new.start;
+					continue;
+				}
+			}
+
+		}
+	} else {
+		// mark is in the future - rewinding to bring the mark back to the present
+		for (pr = r = m->rev; r && tr && r->seq > tr->seq; pr = r, r = r->prev) {
+			Change *c = r->change;
+			if (!c) {
+				continue;
+			}
+			for (; c; c = c->next) {
+				if (!c->old.start || !c->old.end || !c->new.start || !c->new.end) {
+					continue;
+				}
+				if (c->old.len > c->new.len) {
+					// text was deleted, but we're undoing that.
+					//continue;
+				}
+				// text was added, but we're undoing it
+				if (mp != c->new.start && mp != c->new.end && (c->new.start && mp != c->new.start->next)) {
+					// irrelevant change
+					continue;
+				}
+
+				// check complex midway-insertion cases first
+				if (c->old.len < c->new.len && c->new.start->next->next == c->new.end) {
+					if (c->new.start->next == mp) {
+						mp = c->old.end;
+						off += c->new.start->len;
+						continue;
+					}
+					if (mp == c->new.end && c->old.start == c->old.end) {
+						mp = c->old.start;
+						off += c->new.start->len /* + c->new.start->next->len */;
+					}
+				}
+
+
+				if (mp != c->new.start && mp != c->new.end && (c->new.start && mp != c->new.start->next)) {
+					// irrelevant change
+					continue;
+				}
+
+				if (mp == c->new.end && off < c->old.end->len) {
+					// if the offset is zero, it could have been
+					if (off > 0) {
+						mp = c->old.end;
+						continue;
+					}
+				}
+				if (mp == c->new.start && off < c->old.start->len) {
+					mp = c->old.start;
+					continue;
+				}
+			}
+
+		}
+	}
 
 	for (Piece *p = txt->begin.next; p->next; p = p->next) {
-		Mark start = (Mark)(p->data);
-		Mark end = start + p->len;
+		char *start = (char *)(p->data);
+		char *end = start + p->len;
+		char *mark = (char *)mp->data + off;
 		if (start <= mark && mark < end)
 			return cur + (mark - start);
 		cur += p->len;
