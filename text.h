@@ -19,12 +19,29 @@ typedef struct {
 	size_t off;             /* offset into the piece in bytes */
 } Location;
 
-/** A mark. */
-typedef uintptr_t Mark;
+/* A mark.
+ * this tracks a position in text across modifications
+ * "the cat says meow"
+ *      ^   ^
+ *      a   b
+ * a & b are locations
+ * delete "cat", insert "dog", delete "says meow", insert "roars"
+ *
+ * since the location of a particular word can change between revisions,
+ * we will (lazily) evaluate where they would be now, given the revision
+ * made between the mark's capture time, and now, which ideally, is:
+ * "the lion roars"
+ *      ^    ^
+ *      a    b
+ */
+typedef struct Mark {
+	Location loc;
+	Revision *rev;
+} Mark;
 
 /** An invalid mark, lookup of which will yield ``EPOS``. */
-#define EMARK ((Mark)0)
-#define IS_EMARK(m) ((m) == EMARK)
+#define EMARK ((Mark){0})
+#define IS_EMARK(m) ((m.loc.piece) == NULL)
 /** An invalid position. */
 #define EPOS ((size_t)-1)
 

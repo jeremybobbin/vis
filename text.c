@@ -940,12 +940,18 @@ size_t text_lineno_by_pos(Text *txt, size_t pos) {
 }
 
 Mark text_mark_set(Text *txt, size_t pos) {
-	if (pos == txt->size)
-		return (Mark)&txt->end;
-	Location loc = piece_get_extern(txt, pos);
-	if (!loc.piece)
+	Mark mark = ((Mark){
+		.loc = pos == txt->size ?
+			((Location) {
+				.piece = &txt->end,
+				.off = 0,
+			}) :
+			piece_get_extern(txt, pos),
+		.rev = txt->history,
+	});
+	if (!mark.loc.piece)
 		return EMARK;
-	return (Mark)(loc.piece->data + loc.off);
+	return mark;
 }
 
 size_t text_mark_get(const Text *txt, Mark mark) {
@@ -953,12 +959,126 @@ size_t text_mark_get(const Text *txt, Mark mark) {
 
 	if (IS_EMARK(mark))
 		return EPOS;
-	if (mark == (Mark)&txt->end)
+	if (mark.loc.piece == &txt->end)
 		return txt->size;
 
+	Piece *mp = mark.loc.piece;
+	size_t off = mark.loc.off;
+
+	Revision *r = mark.rev, *tr = txt->history;
+	Change *c;
+
+	bool b = r->seq > tr->seq; // backwards
+	// if b is true
+	// mark is from the past
+	// following it forward through history
+
+	for (r = b ? mark.rev : mark.rev->next; r && tr && (b ^ (r->seq <= tr->seq)); r = b ? r->prev : r->next) {
+		if (!(c = r->change)) {
+			continue;
+		}
+		if (!b) {
+			while (c->next)
+				c = c->next;
+		}
+		for (; c; c = b ? c->next : c->prev) {
+			if (!c->old.start || !c->old.end || !c->new.start || !c->new.end) {
+				continue;
+			}
+			Span *old, *new;
+			if (!b) {
+				 old = &c->old;
+				 new = &c->new;
+			} else {
+				 old = &c->new;
+				 new = &c->old;
+			}
+
+			// text was added, but we're undoing it
+			if (mp != old->start && mp != old->end && !(mp == old->start->next && mp->next == old->end)) {
+				// irrelevant change
+				continue;
+			}
+			if (old->start == old->end) {
+				// 1-chunk to 1 chunk(though new.start & new.end may or may not be equal)
+				if (
+					(size_t)(new->start->data - old->start->data) == old->start->len - new->start->len
+				) {
+					//start-to-midway deletion
+
+					if (mp->data + off >= new->start->data && mp->data + off < new->start->data + new->start->len) {
+						mp = new->start;
+						off -= new->start->data - old->start->data;
+						continue;
+					} else if (new->start->data - old->start->data == 1) {
+						mp = new->start;
+						off = 0;
+					}
+
+				}
+				if (mp == old->start && old->start->data == new->start->data) {
+					// midway-to-end deletion
+					if (off < new->start->len) {
+						mp = new->start;
+						continue;
+					} else if (off == new->start->len) {
+						//mp = new->start->next;
+						mp = new->end;
+						off = 0;
+						continue;
+					}
+				}
+			}
+			if (mp == old->start->next && mp->next == old->end) {
+				// old is 3 chunks
+				if (new->start == new->end) {
+					// 3 chunks -> 1 chunk - undoing insert
+					if (off == 0 || off == mp->len-1) {
+						mp = new->start;
+						off = old->start->len;
+						continue;
+					}
+				} else { // 3 chunks -> 2 chunks - deleting between two spans
+					if (off == mp->len-1) {
+						mp = new->end;
+						off = 0;
+						continue;
+					} else if (off == 0) {
+						mp = new->start;
+						off = new->start->len-1;
+						continue;
+					}
+				}
+			}
+			if (off == new->start->len) { // 2 chunks -> 2 chunks
+				// mark was on the end of a piece & was deleted
+				// stick it on the start of the next piece
+				off = 0;
+				mp = new->end;
+				continue;
+
+				//  |1-----------
+				//  the cat purrs
+				//      ^
+				//      a
+				// x/cat/ c/lion/
+				//  the  purrs
+				//      ^
+				//      a
+				//  points at the space
+				//  |1--|2--|1+8--
+				//  the lion purrs
+				//
+				// mark should now point at 'l' instead
+			}
+		}
+
+	}
+
 	for (Piece *p = txt->begin.next; p->next; p = p->next) {
-		Mark start = (Mark)(p->data);
-		Mark end = start + p->len;
+		char *start = (char *)p->data;
+		char *end = start + p->len;
+		char *mark = (char *)mp->data + off;
 		if (start <= mark && mark < end)
 			return cur + (mark - start);
 		cur += p->len;

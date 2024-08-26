@@ -2305,9 +2305,10 @@ static int file_mark_set(lua_State *L) {
 	File *file = obj_ref_check(L, 1, VIS_LUA_TYPE_FILE);
 	size_t pos = checkpos(L, 2);
 	Mark mark = text_mark_set(file->text, pos);
-	if (mark)
-		obj_lightref_new(L, (void*)mark, VIS_LUA_TYPE_MARK);
-	else
+	if (!IS_EMARK(mark)) {
+		Mark *handle = obj_new(L, sizeof(mark), VIS_LUA_TYPE_MARK);
+		*handle = mark;
+	} else
 		lua_pushnil(L);
 	return 1;
 }
@@ -2320,8 +2321,8 @@ static int file_mark_set(lua_State *L) {
  */
 static int file_mark_get(lua_State *L) {
 	File *file = obj_ref_check(L, 1, VIS_LUA_TYPE_FILE);
-	Mark mark = (Mark)obj_lightref_check(L, 2, VIS_LUA_TYPE_MARK);
-	size_t pos = text_mark_get(file->text, mark);
+	Mark *mark = luaL_checkudata(L, 2, VIS_LUA_TYPE_MARK);
+	size_t pos = text_mark_get(file->text, *mark);
 	if (pos == EPOS)
 		lua_pushnil(L);
 	else
