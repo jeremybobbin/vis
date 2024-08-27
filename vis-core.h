@@ -34,8 +34,6 @@ struct Mode {
 	void (*enter)(Vis*, Mode *old);           /* called right before the mode becomes active */
 	void (*leave)(Vis*, Mode *new);           /* called right before the mode becomes inactive */
 	void (*input)(Vis*, const char*, size_t); /* called whenever a key is not found in this mode and all its parent modes */
-	void (*idle)(Vis*);                 /* called whenever a certain idle time i.e. without any user input elapsed */
-	time_t idle_timeout;                /* idle time in seconds after which the registered function will be called */
 	bool visual;                        /* whether text selection is possible in this mode */
 };
 
