@@ -9,7 +9,6 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <ctype.h>
-#include <time.h>
 #include <sys/select.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -1304,8 +1303,6 @@ int vis_run(Vis *vis) {
 
 	vis_event_emit(vis, VIS_EVENT_START);
 
-	struct timespec idle = { .tv_nsec = 0 }, *timeout = NULL;
-
 	sigset_t emptyset;
 	sigemptyset(&emptyset);
 	vis_draw(vis);
@@ -1360,8 +1357,7 @@ int vis_run(Vis *vis) {
 		}
 
 		vis_update(vis);
-		idle.tv_sec = vis->mode->idle_timeout;
-		int r = pselect(1, &fds, NULL, NULL, timeout, &emptyset);
+		int r = pselect(1, &fds, NULL, NULL, NULL, &emptyset);
 		if (r == -1 && errno == EINTR)
 			continue;
 
@@ -1371,9 +1367,6 @@ int vis_run(Vis *vis) {
 		}
 
 		if (!FD_ISSET(STDIN_FILENO, &fds)) {
-			if (vis->mode->idle)
-				vis->mode->idle(vis);
-			timeout = NULL;
 			continue;
 		}
 
@@ -1399,8 +1392,6 @@ int vis_run(Vis *vis) {
 		len -= i;
 		i = 0;
 
-		if (vis->mode->idle)
-			timeout = &idle;
 	}
 	return vis->exit_status;
 }

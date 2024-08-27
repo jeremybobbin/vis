@@ -85,7 +85,7 @@ key action, it is invoked with the remainder of the input queue passed as argume
 Modes
 -----
 
-A mode defines *enter*, *leave* and *idle* actions and captures a set of
+A mode defines *enter* and *leave* actions and captures a set of
 key bindings.
 
 Modes are hierarchical, key bindings are searched recursively towards

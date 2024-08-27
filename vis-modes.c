@@ -237,12 +237,6 @@ static void vis_mode_insert_replace_enter(Vis *vis, Mode *old) {
 	macro_operator_record(vis);
 }
 
-static void vis_mode_insert_idle(Vis *vis) {
-	Win *win = vis->win;
-	if (win)
-		vis_file_snapshot(vis, win->file);
-}
-
 static void vis_mode_insert_input(Vis *vis, const char *str, size_t len) {
 	vis_insert_key(vis, str, len);
 }
@@ -290,8 +284,6 @@ Mode vis_modes[] = {
 		.help = "",
 		.enter = vis_mode_insert_replace_enter,
 		.input = vis_mode_insert_input,
-		.idle = vis_mode_insert_idle,
-		.idle_timeout = 3,
 	},
 	[VIS_MODE_REPLACE] = {
 		.id = VIS_MODE_REPLACE,
@@ -301,8 +293,6 @@ Mode vis_modes[] = {
 		.help = "",
 		.enter = vis_mode_insert_replace_enter,
 		.input = vis_mode_replace_input,
-		.idle = vis_mode_insert_idle,
-		.idle_timeout = 3,
 	},
 };
 
