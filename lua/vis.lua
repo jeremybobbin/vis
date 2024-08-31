@@ -11,6 +11,7 @@
 -- The operator function will receive the @{File}, @{Range} and position
 -- to operate on and is expected to return the new cursor position.
 --
+-- @function vis:operator_new
 -- @tparam string key the key to associate with the new operator
 -- @tparam function operator the operator logic implemented as Lua function
 -- @tparam[opt] string help the single line help text as displayed in `:help`
@@ -47,6 +48,7 @@ end
 -- The motion function will receive the @{Window} and an initial position
 -- (in bytes from the start of the file) as argument and is expected to
 -- return the resulting position.
+-- @function vis:motion_new
 -- @tparam string key the key to associate with the new option
 -- @tparam function motion the motion logic implemented as Lua function
 -- @tparam[opt] string help the single line help text as displayed in `:help`
@@ -76,6 +78,7 @@ end
 -- The text object function will receive the @{Window} and an initial
 -- position(in bytes from the start of the file) as argument and is
 -- expected to return the resulting range or `nil`.
+-- @function vis:textobject_new
 -- @tparam string key the key associated with the new text object
 -- @tparam function textobject the text object logic implemented as Lua function
 -- @tparam[opt] string help the single line help text as displayed in `:help`
@@ -101,6 +104,7 @@ end
 --- Check whether a Lua module exists
 --
 -- Checks whether a subsequent @{require} call will succeed.
+-- @function vis:module_exist
 -- @tparam string name the module name to check
 -- @treturn bool whether the module was found
 vis.module_exist = function(_, name)
