@@ -129,7 +129,7 @@ static void view_clear(View *view) {
 			view->start_mark = text_mark_set(view->text, view->start);
 	} else {
 		size_t start;
-		if (view->start_mark == EMARK)
+		if (IS_EMARK(view->start_mark))
 			start = 0;
 		else
 			start = text_mark_get(view->text, view->start_mark);
