@@ -787,7 +787,7 @@
 
     <ul>
         <li><span class="parameter">win</span>
-            <span class="types"><span class="type">window</span></span>
+            <span class="types"><a class="type" href="index.html#Class_Window">Window</a></span>
 
         </li>
     </ul>
@@ -836,7 +836,8 @@
 
     <h3>See also:</h3>
     <ul>
-         <a href="index.html#Window:map">vis:map</a>
+         <li><a href="index.html#Vis:map">Vis:map</a></li>
+         <li><a href="index.html#Window:map">Window:map</a></li>
     </ul>
 
 
@@ -1027,7 +1028,7 @@
     <dd>
     Insert keys at all cursor positions of active window.
 <p> This function behaves as if the keys were entered in insert mode,
- but in contrast to <a href="index.html#Vis:feedkeys">vis:feedkeys</a> it bypasses the input queue,
+ but in contrast to <a href="index.html#Vis:feedkeys">Vis:feedkeys</a> it bypasses the input queue,
  meaning mappings do not apply and the keys will not be recorded in macros.
 
 
@@ -1044,7 +1045,7 @@
 
     <h3>See also:</h3>
     <ul>
-         <a href="index.html#Vis:feedkeys">vis:feedkeys</a>
+         <a href="index.html#Vis:feedkeys">Vis:feedkeys</a>
     </ul>
 
 
@@ -1085,6 +1086,7 @@
 
     <h3>See also:</h3>
     <ul>
+         <a href="index.html#Window:map">Window:map</a>
     </ul>
 
     <h3>Usage:</h3>
@@ -1126,6 +1128,7 @@
 
     <h3>See also:</h3>
     <ul>
+         <a href="index.html#Window:map">Window:map</a>
     </ul>
 
     <h3>Usage:</h3>
@@ -1179,6 +1182,7 @@ vis:map(vis.modes.NORMAL, <span class="string">"gl"</span>, action)</pre>
 
     <h3>See also:</h3>
     <ul>
+         <a href="index.html#Window:map">Window:map</a>
     </ul>
 
     <h3>Usage:</h3>
@@ -1222,7 +1226,7 @@ vis:map(vis.modes.NORMAL, <span class="string">"gl"</span>, action)</pre>
 
     <h3>See also:</h3>
     <ul>
-         <a href="index.html#Window:map">vis:map</a>
+         <a href="index.html#Vis:map">Vis:map</a>
     </ul>
 
     <h3>Usage:</h3>
@@ -1590,7 +1594,7 @@ vis:map(vis.modes.NORMAL, <span class="string">"gl"</span>, action)</pre>
     <dd>
     Replace keys at all cursor positions of active window.
 <p> This function behaves as if the keys were entered in replace mode,
- but in contrast to <a href="index.html#Vis:feedkeys">vis:feedkeys</a> it bypasses the input queue,
+ but in contrast to <a href="index.html#Vis:feedkeys">Vis:feedkeys</a> it bypasses the input queue,
  meaning mappings do not apply and the keys will not be recorded in macros.
 
 
@@ -1607,7 +1611,7 @@ vis:map(vis.modes.NORMAL, <span class="string">"gl"</span>, action)</pre>
 
     <h3>See also:</h3>
     <ul>
-         <a href="index.html#Vis:feedkeys">vis:feedkeys</a>
+         <a href="index.html#Vis:feedkeys">Vis:feedkeys</a>
     </ul>
 
 
@@ -1688,6 +1692,7 @@ vis:map(vis.modes.NORMAL, <span class="string">"gl"</span>, action)</pre>
 
     <h3>See also:</h3>
     <ul>
+         <a href="index.html#Window:unmap">Window:unmap</a>
     </ul>
 
 
@@ -1788,7 +1793,6 @@ vis:map(vis.modes.NORMAL, <span class="string">"gl"</span>, action)</pre>
 
     <h3>See also:</h3>
     <ul>
-         <a href="index.html#Vis:mark_names">vis:mark_names</a>
     </ul>
 
 
@@ -1948,7 +1952,7 @@ vis:map(vis.modes.NORMAL, <span class="string">"gl"</span>, action)</pre>
     </dt>
     <dd>
     Set up a window local key mapping.
- The function signatures are the same as for <a href="index.html#Window:map">vis:map</a>.
+ The function signatures are the same as for <a href="index.html#Vis:map">Vis:map</a>.
 
 
     <h3>Parameters:</h3>
@@ -1962,7 +1966,7 @@ vis:map(vis.modes.NORMAL, <span class="string">"gl"</span>, action)</pre>
 
     <h3>See also:</h3>
     <ul>
-         <a href="index.html#Window:map">vis:map</a>
+         <a href="index.html#Vis:map">Vis:map</a>
     </ul>
 
 
@@ -2123,7 +2127,7 @@ vis:map(vis.modes.NORMAL, <span class="string">"gl"</span>, action)</pre>
     </dt>
     <dd>
     Remove a window local key mapping.
- The function signature is the same as for <a href="index.html#Window:unmap">vis:unmap</a>.
+ The function signature is the same as for <a href="index.html#Vis:unmap">Vis:unmap</a>.
 
 
     <h3>Parameters:</h3>
@@ -2137,7 +2141,7 @@ vis:map(vis.modes.NORMAL, <span class="string">"gl"</span>, action)</pre>
 
     <h3>See also:</h3>
     <ul>
-         <a href="index.html#Window:unmap">vis:unmap</a>
+         <a href="index.html#Vis:unmap">Vis:unmap</a>
     </ul>
 
 
@@ -2187,7 +2191,7 @@ vis:map(vis.modes.NORMAL, <span class="string">"gl"</span>, action)</pre>
 <p> 1. Read out the current selection position
  2. Perform text modifications
  3. Update the selection position
-<p> This is what <a href="index.html#Vis:insert">vis:insert</a> and <a href="index.html#Vis:replace">vis:replace</a> do internally.
+<p> This is what <a href="index.html#Vis:insert">Vis:insert</a> and <a href="index.html#Vis:replace">Vis:replace</a> do internally.
 
           </div>
             <h3>Usage:</h3>
@@ -2955,7 +2959,8 @@ win.selection.pos = pos + #data</pre>
 
     <h3>See also:</h3>
     <ul>
-         <a href="index.html#Window:map">vis:map</a>
+         <li><a href="index.html#Vis:map">Vis:map</a></li>
+         <li><a href="index.html#Window:map">Window:map</a></li>
     </ul>
 
 
@@ -2966,8 +2971,8 @@ win.selection.pos = pos + #data</pre>
           <div class="section-description">
 
 <p> This section describes the contract between the editor core and Lua
- key handling functions mapped to symbolic keys using either <a href="index.html#Window:map">vis:map</a>
- or ???.
+ key handling functions mapped to symbolic keys using either <a href="index.html#Vis:map">Vis:map</a>
+ or <a href="index.html#Window:map">Window:map</a>.
 
           </div>
     <dl class="function">
@@ -3007,8 +3012,9 @@ win.selection.pos = pos + #data</pre>
 
     <h3>See also:</h3>
     <ul>
-         <li><a href="index.html#Vis:action_register">vis:action_register</a></li>
-         <li><a href="index.html#Window:map">vis:map</a></li>
+         <li><a href="index.html#Vis:action_register">Vis:action_register</a></li>
+         <li><a href="index.html#Vis:map">Vis:map</a></li>
+         <li><a href="index.html#Window:map">Window:map</a></li>
     </ul>
 
     <h3>Usage:</h3>
@@ -3483,7 +3489,7 @@ win.selection.pos = pos + #data</pre>
 </div> <!-- id="main" -->
 <div id="about">
 <i>generated by <a href="http://github.com/stevedonovan/LDoc">LDoc 1.4.6</a></i>
-<i style="float:right;">Last updated 2024-09-01 09:26:48 </i>
+<i style="float:right;">Last updated 2024-09-02 23:00:12 </i>
 </div> <!-- id="about" -->
 </div> <!-- id="container" -->
 </body>
