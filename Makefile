@@ -71,31 +71,30 @@ config.mk:
 
 $(OBJ): config.mk config.h
 
+ui-terminal-keytab.h: keytab.in
+	./ui-terminal-keytab.sh > $@
 
 map.o: map.h
 array.o: array.h util.h
 buffer.o: buffer.h util.h
 libutf.o: libutf.h util.h
 
-text-common.o: text.h
-text-io.o: text.h text-internal.h text-util.h util.h
-text-iterator.o: text.h util.h
-text-motions.o: text-motions.h text-util.h util.h text-objects.h
-text-objects.o: text-motions.h text-objects.h text-util.h util.h
-text.o: text.h text-util.h text-motions.h util.h array.h text-internal.h
-
-ui-terminal-keytab.h: keytab.in
-	./ui-terminal-keytab.sh > $@
-
-sam.o: sam.h vis-core.h buffer.h text.h text-motions.h text-objects.h text-regex.h util.h vis-cmds.c
+text.o: text.h  text-internal.h array.o util.h text-util.o text-motions.o
+text-common.o: text.o
+text-io.o: text-internal.h  util.h text.o text-util.o
+text-iterator.o: text.o util.h
+text-motions.o: text-motions.h text-objects.h util.h text-util.o
+text-objects.o: text-objects.h text-motions.o text-util.o util.h
 $(REGEX_SRC:.c=.o): text-regex.h $(REGEX_SRC)
-text-util.o: text-util.h util.h
-ui-terminal-vt100.o: buffer.h
-ui-terminal.o: libkey.o libkey.h ui-terminal-keytab.h vis.h vis-core.h text.h util.h text-util.h ui-terminal-curses.c ui-terminal-vt100.c
-view.o: view.h text.h text-motions.h text-util.h util.h
-vis-cmds.o: vis-lua.h sam.c
-vis-lua.o: vis-lua.h vis-core.h text-motions.h util.h
 
+
+sam.o: sam.h vis-core.h buffer.o text.o text-motions.o text-objects.o $(REGEX_SRC:.c=.o) util.h vis-cmds.c
+text-util.o: text-util.h util.h
+ui-terminal.o: libkey.o ui-terminal-keytab.h vis.h vis-core.h text.h util.h text-util.h ui-terminal-curses.c
+view.o: view.h text.h text-motions.h text-util.h util.h
+
+vis-cmds.o: vis-lua.h sam.c
+vis-lua.o: vis-lua.h vis-core.h text-objects.h text-motions.h util.h
 vis-marks.o: vis-core.h
 vis-registers.o: vis-core.h
 vis-modes.o: vis-core.h text-motions.h util.h
@@ -104,9 +103,9 @@ vis-operators.o: vis-core.h text-motions.h text-objects.h text-util.h util.h
 vis-prompt.o: vis-core.h text-motions.h text-objects.h text-util.h
 vis-text-objects.o: vis-core.h text-objects.h util.h
 
-libkey.o: map.o map.h vis.o
-vis.o: vis.h text-util.h text-motions.h text-objects.h util.h vis-core.h sam.h ui.h
-main.o: libkey.h ui-terminal.h vis.h vis-lua.h text-util.h text-motions.h text-objects.h util.h libutf.h array.h buffer.h config.h libkey.o
+libkey.o: libkey.h map.o
+vis.o: vis.h text-util.h util.h vis-core.h ui.h text-motions.o text-objects.o sam.o ui-terminal.o # TODO ui.o
+main.o: config.h util.h array.o buffer.o libutf.o libkey.o text-util.o text-motions.o text-objects.o ui-terminal.o vis-lua.o vis.o
 
 vis: \
 	$(REGEX_SRC:.c=.o) \
