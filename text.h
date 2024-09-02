@@ -14,6 +14,7 @@ typedef uintptr_t Mark;
 
 /** An invalid mark, lookup of which will yield ``EPOS``. */
 #define EMARK ((Mark)0)
+#define IS_EMARK(m) ((m) == EMARK)
 /** An invalid position. */
 #define EPOS ((size_t)-1)
 
