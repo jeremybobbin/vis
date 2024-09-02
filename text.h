@@ -9,6 +9,16 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+typedef struct Revision Revision;
+typedef struct Piece Piece;
+/* used to transform a global position (byte offset starting from the beginning
+ * of the text) into an offset relative to a piece.
+ */
+typedef struct {
+	Piece *piece;           /* piece holding the location */
+	size_t off;             /* offset into the piece in bytes */
+} Location;
+
 /** A mark. */
 typedef uintptr_t Mark;
 
@@ -28,7 +38,6 @@ typedef struct {
  * Text object storing the buffer content being edited.
  */
 typedef struct Text Text;
-typedef struct Piece Piece;
 typedef struct TextSave TextSave;
 
 /** A contiguous part of the text. */

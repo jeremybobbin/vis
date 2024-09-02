@@ -36,14 +36,6 @@ struct Piece {
 	size_t len;             /* the length in number of bytes of the data */
 };
 
-/* used to transform a global position (byte offset starting from the beginning
- * of the text) into an offset relative to a piece.
- */
-typedef struct {
-	Piece *piece;           /* piece holding the location */
-	size_t off;             /* offset into the piece in bytes */
-} Location;
-
 /* A Span holds a certain range of pieces. Changes to the document are always
  * performed by swapping out an existing span with a new one.
  */
@@ -65,7 +57,6 @@ struct Change {
 /* A Revision is a list of Changes which are used to undo/redo all modifications
  * since the last snapshot operation. Revisions are stored in a directed graph structure.
  */
-typedef struct Revision Revision;
 struct Revision {
 	Change *change;         /* the most recent change */
 	Revision *next;         /* the next (child) revision in the undo tree */
