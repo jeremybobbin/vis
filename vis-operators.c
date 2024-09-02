@@ -198,7 +198,7 @@ static size_t op_join(Vis *vis, Text *txt, OperatorContext *c) {
 		if (text_byte_get(txt, pos-1, &prev) && !isspace((unsigned char)prev) &&
 		    text_byte_get(txt, pos, &next) && next != '\n')
 			text_insert(txt, pos, c->arg->s, len);
-		if (mark == EMARK)
+		if (IS_EMARK(mark))
 			mark = text_mark_set(txt, pos);
 	} while (pos != prev_pos);
 
