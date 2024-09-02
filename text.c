@@ -837,7 +837,7 @@ Mark text_mark_set(Text *txt, size_t pos) {
 size_t text_mark_get(const Text *txt, Mark mark) {
 	size_t cur = 0;
 
-	if (mark == EMARK)
+	if (IS_EMARK(mark))
 		return EPOS;
 	if (mark == (Mark)&txt->end)
 		return txt->size;
