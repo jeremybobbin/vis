@@ -776,12 +776,21 @@ void vis_insert(Vis *vis, size_t pos, const char *data, size_t len) {
 
 void vis_insert_key(Vis *vis, const char *data, size_t len) {
 	Win *win = vis->win;
+	Selection *s, *sm;
+	size_t max = 0, pos = 0;
 	if (!win)
 		return;
-	for (Selection *s = view_selections(win->view); s; s = view_selections_next(s)) {
-		size_t pos = view_cursors_pos(s);
+
+	for (s = view_selections(win->view); s; s = view_selections_next(s)) {
+		pos = view_cursors_pos(s);
+		if (pos > max) {
+			max = pos;
+			sm = s;
+		}
 		vis_insert(vis, pos, data, len);
-		view_cursors_scroll_to(s, pos + len);
+	}
+	if (max > 0) {
+		view_cursors_scroll_to(sm, max + len);
 	}
 }
 
