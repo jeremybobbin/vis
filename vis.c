@@ -348,7 +348,7 @@ static void window_draw_selection(View *view, Selection *cur, CellStyle *style) 
 	Line *start_line; int start_col;
 	Line *end_line; int end_col;
 	view_coord_get(view, sel.start, &start_line, NULL, &start_col);
-	view_coord_get(view, sel.end, &end_line, NULL, &end_col);
+	view_coord_get(view, sel.end-1, &end_line, NULL, &end_col);
 	if (!start_line && !end_line)
 		return;
 	if (!start_line) {
@@ -361,7 +361,7 @@ static void window_draw_selection(View *view, Selection *cur, CellStyle *style) 
 	}
 	for (Line *l = start_line; l != end_line->next; l = l->next) {
 		int col = (l == start_line) ? start_col : 0;
-		int end = (l == end_line) ? end_col : l->width;
+		int end = (l == end_line) ? end_col+1 : l->width;
 		while (col < end) {
 			l->cells[col].style.bg = style->bg;
 			l->cells[col].style.fg = style->fg;
