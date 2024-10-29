@@ -2815,8 +2815,34 @@ void vis_lua_init(Vis *vis) {
 		enum VisTextObject id;
 		const char *name;
 	} textobjects[] = {
-		{ VIS_TEXTOBJECT_INNER_WORD, "text_object_word" },
-		{ VIS_TEXTOBJECT_INNER_LONGWORD, "text_object_longword" },
+		{ VIS_TEXTOBJECT_INNER_WORD,           "text_object_word"                },
+		{ VIS_TEXTOBJECT_INNER_LONGWORD,       "text_object_longword"            },
+		{ VIS_TEXTOBJECT_OUTER_WORD,           "text_object_word_outer"          },
+		{ VIS_TEXTOBJECT_INNER_WORD,           "text_object_word_inner"          },
+		{ VIS_TEXTOBJECT_OUTER_LONGWORD,       "text_object_bigword_outer"       },
+		{ VIS_TEXTOBJECT_INNER_LONGWORD,       "text_object_bigword_inner"       },
+		{ VIS_TEXTOBJECT_SENTENCE,             "text_object_sentence"            },
+		{ VIS_TEXTOBJECT_PARAGRAPH,            "text_object_paragraph"           },
+		{ VIS_TEXTOBJECT_PARAGRAPH_OUTER,      "text_object_paragraph_outer"     },
+		{ VIS_TEXTOBJECT_OUTER_SQUARE_BRACKET, "text_object_squarebracket_outer" },
+		{ VIS_TEXTOBJECT_INNER_SQUARE_BRACKET, "text_object_squarebracket_inner" },
+		{ VIS_TEXTOBJECT_OUTER_PARENTHESIS,    "text_object_parenthesis_outer"   },
+		{ VIS_TEXTOBJECT_INNER_PARENTHESIS,    "text_object_parenthesis_inner"   },
+		{ VIS_TEXTOBJECT_OUTER_ANGLE_BRACKET,  "text_object_anglebracket_outer"  },
+		{ VIS_TEXTOBJECT_INNER_ANGLE_BRACKET,  "text_object_anglebracket_inner"  },
+		{ VIS_TEXTOBJECT_OUTER_CURLY_BRACKET,  "text_object_curlybracket_outer"  },
+		{ VIS_TEXTOBJECT_INNER_CURLY_BRACKET,  "text_object_curlybracket_inner"  },
+		{ VIS_TEXTOBJECT_OUTER_QUOTE,          "text_object_quote_outer"         },
+		{ VIS_TEXTOBJECT_INNER_QUOTE,          "text_object_quote_inner"         },
+		{ VIS_TEXTOBJECT_OUTER_SINGLE_QUOTE,   "text_object_singlequote_outer"   },
+		{ VIS_TEXTOBJECT_INNER_SINGLE_QUOTE,   "text_object_singlequote_inner"   },
+		{ VIS_TEXTOBJECT_OUTER_BACKTICK,       "text_object_backtick_outer"      },
+		{ VIS_TEXTOBJECT_INNER_BACKTICK,       "text_object_backtick_inner"      },
+		{ VIS_TEXTOBJECT_OUTER_LINE,           "text_object_line_outer"          },
+		{ VIS_TEXTOBJECT_INNER_LINE,           "text_object_line_inner"          },
+		{ VIS_TEXTOBJECT_INDENTATION,          "text_object_indentation"         },
+		{ VIS_TEXTOBJECT_SEARCH_FORWARD,       "text_object_search_forward"      },
+		{ VIS_TEXTOBJECT_SEARCH_BACKWARD,      "text_object_search_backward"     },
 	};
 
 	for (size_t i = 0; i < LENGTH(textobjects); i++) {
