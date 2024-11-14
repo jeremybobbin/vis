@@ -9,6 +9,17 @@
 typedef struct lua_State lua_State;
 #endif
 
+#if LUA_VERSION_NUM < 502
+#define lua_pushunsinged lua_pushinteger
+#define lua_setuservalue lua_setfenv
+#define lua_getuservalue lua_getfenv
+#define lua_Unsigned lua_Integer
+#define lua_tounsigned lua_tointeger
+#define luaL_optunsigned luaL_optinteger
+#define lua_pushunsigned lua_pushinteger
+#define luaL_checkunsigned luaL_checkinteger
+#endif
+
 #include "vis.h"
 
 /* add a directory to consider when loading lua files */
