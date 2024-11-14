@@ -406,15 +406,15 @@ test "$lpeg" = "yes" && lua=yes
 
 if test "$lua" != "no" ; then
 
-	printf "checking for liblua >= 5.2 ...\n"
+	printf "checking for liblua >= 5.1 ...\n"
 
 cat > "$tmpc" <<EOF
 #include <lua.h>
 #include <lualib.h>
 #include <lauxlib.h>
 
-#if LUA_VERSION_NUM < 502
-#error "Need at least Lua 5.2"
+#if LUA_VERSION_NUM < 501
+#error "Need at least Lua 5.1"
 #endif
 
 int main(int argc, char *argv[]) {
@@ -425,7 +425,7 @@ int main(int argc, char *argv[]) {
 }
 EOF
 
-	for liblua in lua lua5.4 lua5.3 lua5.2 lua-5.4 lua-5.3 lua-5.2 lua54 lua53 lua52; do
+	for liblua in luajit lua lua5.4 lua5.3 lua5.2 lua-5.4 lua-5.3 lua-5.2 lua54 lua53 lua52; do
 		printf " checking for %s... " "$liblua"
 
 		if test "$have_pkgconfig" = "yes" ; then
