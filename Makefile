@@ -90,7 +90,7 @@ $(REGEX_SRC:.c=.o): text-regex.h $(REGEX_SRC)
 
 sam.o: sam.h vis-core.h buffer.o text.o text-motions.o text-objects.o $(REGEX_SRC:.c=.o) util.h vis-cmds.c
 text-util.o: text-util.h util.h
-ui-terminal.o: libkey.o ui-terminal-keytab.h vis.h vis-core.h text.h util.h text-util.h ui-terminal-curses.c
+ui-terminal.o: libkey.o ui-terminal-keytab.h vis.h vis-core.h text.h util.h text-util.h ui-terminal-vt100.c ui-terminal-curses.c
 view.o: view.h text.h text-motions.h text-util.h util.h
 
 vis-cmds.o: vis-lua.h sam.c
