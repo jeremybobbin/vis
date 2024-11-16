@@ -1155,8 +1155,6 @@ static void vis_keys_process(Vis *vis, size_t pos) {
 			return;
 		}
 
-		char tmp = *end;
-		*end = '\0';
 		prefix = false;
 
 		for (Mode *global_mode = vis->mode; global_mode && !prefix; global_mode = global_mode->parent) {
@@ -1167,7 +1165,7 @@ static void vis_keys_process(Vis *vis, size_t pos) {
 				if (!mode->bindings)
 					continue;
 				/* keep track of longest matching binding */
-				KeyBinding *match = map_get(mode->bindings, start);
+				KeyBinding *match = map_get_sized(mode->bindings, start, end-start);
 				if (match && end > binding_end) {
 					binding = match;
 					binding_end = end;
@@ -1185,8 +1183,6 @@ static void vis_keys_process(Vis *vis, size_t pos) {
 				         ( match && completions.count > 1);
 			}
 		}
-
-		*end = tmp;
 
 		if (prefix) {
 			/* input so far is ambiguous, wait for more */
@@ -1215,10 +1211,7 @@ static void vis_keys_process(Vis *vis, size_t pos) {
 			KeyAction *action = NULL;
 			if (start[0] == '<' && end[-1] == '>') {
 				/* test for special editor key command */
-				char tmp = end[-1];
-				end[-1] = '\0';
-				action = map_get(vis->actions, start+1);
-				end[-1] = tmp;
+				action = map_get_sized(vis->actions, start+1, end-start-2);
 				if (action) {
 					size_t len = end - start;
 					strcpy(vis->key_prev, vis->key_current);
