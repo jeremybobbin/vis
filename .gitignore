@@ -3,6 +3,7 @@
 /dependency
 /vis
 /vis-menu
+/vis-keys
 /vis-single
 /vis-single-payload.inc
 /vis-digraph
