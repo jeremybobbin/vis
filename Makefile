@@ -31,7 +31,7 @@ SRC = array.c \
 
 OBJ=$(SRC:c=o)
 
-ELF = vis vis-menu vis-digraph
+ELF = vis vis-menu vis-digraph vis-keys
 EXECUTABLES = $(ELF) vis-clipboard vis-complete vis-open
 
 MANUALS = $(EXECUTABLES:=.1)
@@ -135,6 +135,9 @@ vis: \
 	main.o \
 	vis.o
 	${CC} ${CFLAGS} ${CFLAGS_VIS} ${CFLAGS_EXTRA} $^  -o $@  ${LDFLAGS} ${LDFLAGS_VIS}
+
+vis-keys: vis-keys.o map.o
+	${CC} ${CFLAGS} ${CFLAGS_AUTO} ${CFLAGS_STD} ${CFLAGS_EXTRA} -DVERSION=\"${VERSION}\" $< map.o ${LDFLAGS} ${LDFLAGS_STD} ${LDFLAGS_AUTO} -o $@
 
 vis-menu: vis-menu.c
 	${CC} ${CFLAGS} ${CFLAGS_AUTO} ${CFLAGS_STD} ${CFLAGS_EXTRA} -DVERSION=\"${VERSION}\" $< ${LDFLAGS} ${LDFLAGS_STD} ${LDFLAGS_AUTO} -o $@
