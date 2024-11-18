@@ -58,8 +58,6 @@ bool vis_event_emit(Vis *vis, enum VisEvents id, ...) {
 	case VIS_EVENT_FILE_CLOSE:
 	{
 		File *file = va_arg(ap, File*);
-		if (file->internal)
-			break;
 		if (id == VIS_EVENT_FILE_OPEN && vis->event->file_open) {
 			vis->event->file_open(vis, file);
 		} else if (id == VIS_EVENT_FILE_SAVE_PRE && vis->event->file_save_pre) {
@@ -79,8 +77,6 @@ bool vis_event_emit(Vis *vis, enum VisEvents id, ...) {
 	case VIS_EVENT_WIN_STATUS:
 	{
 		Win *win = va_arg(ap, Win*);
-		if (win->file->internal && id != VIS_EVENT_WIN_STATUS)
-			break;
 		if (vis->event->win_open && id == VIS_EVENT_WIN_OPEN) {
 			vis->event->win_open(vis, win);
 		} else if (vis->event->win_close && id == VIS_EVENT_WIN_CLOSE) {

@@ -3024,7 +3024,7 @@ void vis_lua_file_open(Vis *vis, File *file) {
  */
 bool vis_lua_file_save_pre(Vis *vis, File *file, const char *path) {
 	lua_State *L = vis->lua;
-	if (!L)
+	if (!L || file->internal)
 		return true;
 	vis_lua_event_get(L, "file_save_pre");
 	if (lua_isfunction(L, -1)) {
@@ -3047,7 +3047,7 @@ bool vis_lua_file_save_pre(Vis *vis, File *file, const char *path) {
  */
 void vis_lua_file_save_post(Vis *vis, File *file, const char *path) {
 	lua_State *L = vis->lua;
-	if (!L)
+	if (!L || file->internal)
 		return;
 	vis_lua_event_get(L, "file_save_post");
 	if (lua_isfunction(L, -1)) {
@@ -3069,10 +3069,12 @@ void vis_lua_file_close(Vis *vis, File *file) {
 	lua_State *L = vis->lua;
 	if (!L)
 		return;
-	vis_lua_event_get(L, "file_close");
-	if (lua_isfunction(L, -1)) {
-		obj_ref_new(L, file, VIS_LUA_TYPE_FILE);
-		pcall(vis, L, 1, 0);
+	if (!file->internal) {
+		vis_lua_event_get(L, "file_close");
+		if (lua_isfunction(L, -1)) {
+			obj_ref_new(L, file, VIS_LUA_TYPE_FILE);
+			pcall(vis, L, 1, 0);
+		}
 	}
 	obj_ref_free(L, file->marks);
 	obj_ref_free(L, file->text);
@@ -3089,7 +3091,7 @@ void vis_lua_file_close(Vis *vis, File *file) {
 void vis_lua_win_open(Vis *vis, Win *win) {
 	debug("event: win-open: %s %p %p\n", win->file->name ? win->file->name : "unnamed", (void*)win, (void*)win->view);
 	lua_State *L = vis->lua;
-	if (!L)
+	if (!L || win->file->internal)
 		return;
 	vis_lua_event_get(L, "win_open");
 	if (lua_isfunction(L, -1)) {
@@ -3110,10 +3112,12 @@ void vis_lua_win_close(Vis *vis, Win *win) {
 	lua_State *L = vis->lua;
 	if (!L)
 		return;
-	vis_lua_event_get(L, "win_close");
-	if (lua_isfunction(L, -1)) {
-		obj_ref_new(L, win, VIS_LUA_TYPE_WINDOW);
-		pcall(vis, L, 1, 0);
+	if (!win->file->internal) {
+		vis_lua_event_get(L, "win_close");
+		if (lua_isfunction(L, -1)) {
+			obj_ref_new(L, win, VIS_LUA_TYPE_WINDOW);
+			pcall(vis, L, 1, 0);
+		}
 	}
 	obj_ref_free(L, win->view);
 	obj_ref_free(L, win);
@@ -3129,7 +3133,7 @@ void vis_lua_win_close(Vis *vis, Win *win) {
  */
 void vis_lua_win_highlight(Vis *vis, Win *win) {
 	lua_State *L = vis->lua;
-	if (!L)
+	if (!L || win->file->internal)
 		return;
 	vis_lua_event_get(L, "win_highlight");
 	if (lua_isfunction(L, -1)) {
