@@ -681,7 +681,7 @@ Vis *vis_new(Ui *ui, VisEvent *event) {
 	array_init(&vis->bindings);
 	array_init(&vis->actions_user);
 	action_reset(&vis->action);
-	buffer_init(&vis->input_queue);
+	string_init(&vis->input_queue);
 	if (!(vis->command_file = file_new_internal(vis, NULL)))
 		goto err;
 	if (!(vis->search_file = file_new_internal(vis, NULL)))
@@ -739,7 +739,7 @@ void vis_free(Vis *vis) {
 	}
 	map_free(vis->options);
 	map_free(vis->actions);
-	buffer_release(&vis->input_queue);
+	string_release(&vis->input_queue);
 	for (int i = 0; i < VIS_MODE_INVALID; i++)
 		map_free(vis_modes[i].bindings);
 	array_release_full(&vis->operators);
@@ -1142,7 +1142,7 @@ static bool isprefix(const char *key, void *value, void *data) {
 */
 
 static void vis_keys_process(Vis *vis, size_t pos) {
-	Buffer *buf = &vis->input_queue;
+	String *buf = &vis->input_queue;
 	char *keys = buf->data + pos, *start = keys, *cur = keys, *end = keys, *binding_end = keys;;
 	bool prefix = false;
 	KeyBinding *binding = NULL;
@@ -1150,7 +1150,7 @@ static void vis_keys_process(Vis *vis, size_t pos) {
 	while (cur && *cur) {
 
 		if (!(end = (char*)vis_keys_next(cur))) {
-			buffer_remove(buf, keys - buf->data, strlen(keys));
+			string_remove(buf, keys - buf->data, strlen(keys));
 			return;
 		}
 
@@ -1200,8 +1200,8 @@ static void vis_keys_process(Vis *vis, size_t pos) {
 				}
 				start = cur = end;
 			} else if (binding->alias) {
-				buffer_remove(buf, start - buf->data, binding_end - start);
-				buffer_insert0(buf, start - buf->data, binding->alias);
+				string_remove(buf, start - buf->data, binding_end - start);
+				string_insert0(buf, start - buf->data, binding->alias);
 				cur = end = start;
 			}
 			binding = NULL;
@@ -1231,7 +1231,7 @@ static void vis_keys_process(Vis *vis, size_t pos) {
 		}
 	}
 
-	buffer_remove(buf, keys - buf->data, end - keys);
+	string_remove(buf, keys - buf->data, end - keys);
 }
 
 void vis_keys_feed(Vis *vis, const char *input) {
@@ -1253,7 +1253,7 @@ static void vis_keys_push(Vis *vis, const char *input, size_t pos, bool record) 
 		macro_append(vis->recording, input);
 	if (vis->macro_operator)
 		macro_append(vis->macro_operator, input);
-	if (buffer_append0(&vis->input_queue, input))
+	if (string_append0(&vis->input_queue, input))
 		vis_keys_process(vis, pos);
 }
 
@@ -1408,7 +1408,7 @@ void macro_operator_stop(Vis *vis) {
 	if (!vis->macro_operator)
 		return;
 	Macro *dot = macro_get(vis, VIS_REG_DOT);
-	buffer_put(dot, vis->macro_operator->data, vis->macro_operator->len);
+	string_put(dot, vis->macro_operator->data, vis->macro_operator->len);
 	vis->action_prev.macro = dot;
 	vis->macro_operator = NULL;
 }
@@ -1451,7 +1451,7 @@ static void macro_replay(Vis *vis, const Macro *macro) {
 }
 
 static void macro_replay_internal(Vis *vis, const Macro *macro) {
-	size_t pos = buffer_length0(&vis->input_queue);
+	size_t pos = string_length0(&vis->input_queue);
 	for (char *key = macro->data, *next; key; key = next) {
 		char tmp;
 		next = (char*)vis_keys_next(key);
@@ -1886,25 +1886,25 @@ err:
 }
 
 static ssize_t read_buffer(void *context, char *data, size_t len) {
-	buffer_append(context, data, len);
+	string_append(context, data, len);
 	return len;
 }
 
 int vis_pipe_collect(Vis *vis, File *file, Filerange *range, const char *argv[], char **out, char **err) {
-	Buffer bufout, buferr;
-	buffer_init(&bufout);
-	buffer_init(&buferr);
+	String bufout, buferr;
+	string_init(&bufout);
+	string_init(&buferr);
 	int status = vis_pipe(vis, file, range, argv,
 	                      &bufout, out ? read_buffer : NULL,
 	                      &buferr, err ? read_buffer : NULL);
-	buffer_terminate(&bufout);
-	buffer_terminate(&buferr);
+	string_terminate(&bufout);
+	string_terminate(&buferr);
 	if (out)
-		*out = buffer_move(&bufout);
+		*out = string_move(&bufout);
 	if (err)
-		*err = buffer_move(&buferr);
-	buffer_release(&bufout);
-	buffer_release(&buferr);
+		*err = string_move(&buferr);
+	string_release(&bufout);
+	string_release(&buferr);
 	return status;
 }
 

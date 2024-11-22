@@ -394,27 +394,27 @@ static const char *file_open_dialog(Vis *vis, const char *pattern) {
 	if (!is_file_pattern(pattern))
 		return pattern;
 
-	Buffer bufcmd, bufout, buferr;
-	buffer_init(&bufcmd);
-	buffer_init(&bufout);
-	buffer_init(&buferr);
+	String bufcmd, bufout, buferr;
+	string_init(&bufcmd);
+	string_init(&bufout);
+	string_init(&buferr);
 
-	if (!buffer_put0(&bufcmd, VIS_OPEN " ") || !buffer_append0(&bufcmd, pattern ? pattern : ""))
+	if (!string_put0(&bufcmd, VIS_OPEN " ") || !string_append0(&bufcmd, pattern ? pattern : ""))
 		return NULL;
 
 	Filerange empty = text_range_new(0,0);
 	int status = vis_pipe(vis, vis->win->file, &empty,
-		(const char*[]){ buffer_content0(&bufcmd), NULL },
+		(const char*[]){ string_content0(&bufcmd), NULL },
 		&bufout, read_buffer, &buferr, read_buffer);
 
 	if (status == 0)
-		strncpy(name, buffer_content0(&bufout), sizeof(name)-1);
+		strncpy(name, string_content0(&bufout), sizeof(name)-1);
 	else if (status != 1)
-		vis_info_show(vis, "Command failed %s", buffer_content0(&buferr));
+		vis_info_show(vis, "Command failed %s", string_content0(&buferr));
 
-	buffer_release(&bufcmd);
-	buffer_release(&bufout);
-	buffer_release(&buferr);
+	string_release(&bufcmd);
+	string_release(&bufout);
+	string_release(&buferr);
 
 	for (char *end = name+strlen(name)-1; end >= name && isspace((unsigned char)*end); end--)
 		*end = '\0';

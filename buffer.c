@@ -6,179 +6,179 @@
 #include "buffer.h"
 #include "util.h"
 
-#ifndef BUFFER_SIZE
-#define BUFFER_SIZE 1024
+#ifndef STRING_SIZE
+#define STRING_SIZE 1024
 #endif
 
-void buffer_init(Buffer *buf) {
-	memset(buf, 0, sizeof *buf);
+void string_init(String *str) {
+	memset(str, 0, sizeof *str);
 }
 
-bool buffer_reserve(Buffer *buf, size_t size) {
+bool string_reserve(String *str, size_t size) {
 	/* ensure minimal buffer size, to avoid repeated realloc(3) calls */
-	if (size < BUFFER_SIZE)
-		size = BUFFER_SIZE;
-	if (buf->size < size) {
-		size = MAX(size, buf->size*2);
-		char *data = realloc(buf->data, size);
+	if (size < STRING_SIZE)
+		size = STRING_SIZE;
+	if (str->size < size) {
+		size = MAX(size, str->size*2);
+		char *data = realloc(str->data, size);
 		if (!data)
 			return false;
-		buf->size = size;
-		buf->data = data;
+		str->size = size;
+		str->data = data;
 	}
 	return true;
 }
 
-bool buffer_grow(Buffer *buf, size_t len) {
+bool string_grow(String *str, size_t len) {
 	size_t size;
-	if (!addu(buf->len, len, &size))
+	if (!addu(str->len, len, &size))
 		return false;
-	return buffer_reserve(buf, size);
+	return string_reserve(str, size);
 }
 
-bool buffer_terminate(Buffer *buf) {
-	return !buf->data || buf->len == 0 || buf->data[buf->len-1] == '\0' ||
-	        buffer_append(buf, "\0", 1);
+bool string_terminate(String *str) {
+	return !str->data || str->len == 0 || str->data[str->len-1] == '\0' ||
+	        string_append(str, "\0", 1);
 }
 
-void buffer_release(Buffer *buf) {
-	if (!buf)
+void string_release(String *str) {
+	if (!str)
 		return;
-	free(buf->data);
-	buffer_init(buf);
+	free(str->data);
+	string_init(str);
 }
 
-void buffer_clear(Buffer *buf) {
-	buf->len = 0;
+void string_clear(String *str) {
+	str->len = 0;
 }
 
-bool buffer_put(Buffer *buf, const void *data, size_t len) {
-	if (!buffer_reserve(buf, len))
+bool string_put(String *str, const void *data, size_t len) {
+	if (!string_reserve(str, len))
 		return false;
-	memmove(buf->data, data, len);
-	buf->len = len;
+	memmove(str->data, data, len);
+	str->len = len;
 	return true;
 }
 
-bool buffer_put0(Buffer *buf, const char *data) {
-	return buffer_put(buf, data, strlen(data)+1);
+bool string_put0(String *str, const char *data) {
+	return string_put(str, data, strlen(data)+1);
 }
 
-bool buffer_remove(Buffer *buf, size_t pos, size_t len) {
+bool string_remove(String *str, size_t pos, size_t len) {
 	size_t end;
 	if (len == 0)
 		return true;
-	if (!addu(pos, len, &end) || end > buf->len)
+	if (!addu(pos, len, &end) || end > str->len)
 		return false;
-	memmove(buf->data + pos, buf->data + pos + len, buf->len - pos - len);
-	buf->len -= len;
+	memmove(str->data + pos, str->data + pos + len, str->len - pos - len);
+	str->len -= len;
 	return true;
 }
 
-bool buffer_insert(Buffer *buf, size_t pos, const void *data, size_t len) {
-	if (pos > buf->len)
+bool string_insert(String *str, size_t pos, const void *data, size_t len) {
+	if (pos > str->len)
 		return false;
 	if (len == 0)
 		return true;
-	if (!buffer_grow(buf, len))
+	if (!string_grow(str, len))
 		return false;
-	size_t move = buf->len - pos;
+	size_t move = str->len - pos;
 	if (move > 0)
-		memmove(buf->data + pos + len, buf->data + pos, move);
-	memcpy(buf->data + pos, data, len);
-	buf->len += len;
+		memmove(str->data + pos + len, str->data + pos, move);
+	memcpy(str->data + pos, data, len);
+	str->len += len;
 	return true;
 }
 
-bool buffer_insert0(Buffer *buf, size_t pos, const char *data) {
+bool string_insert0(String *str, size_t pos, const char *data) {
 	if (pos == 0)
-		return buffer_prepend0(buf, data);
-	if (pos == buf->len)
-		return buffer_append0(buf, data);
-	return buffer_insert(buf, pos, data, strlen(data));
+		return string_prepend0(str, data);
+	if (pos == str->len)
+		return string_append0(str, data);
+	return string_insert(str, pos, data, strlen(data));
 }
 
-bool buffer_append(Buffer *buf, const void *data, size_t len) {
-	return buffer_insert(buf, buf->len, data, len);
+bool string_append(String *str, const void *data, size_t len) {
+	return string_insert(str, str->len, data, len);
 }
 
-bool buffer_append0(Buffer *buf, const char *data) {
-	size_t nul = (buf->len > 0 && buf->data[buf->len-1] == '\0') ? 1 : 0;
-	buf->len -= nul;
-	bool ret = buffer_append(buf, data, strlen(data)+1);
+bool string_append0(String *str, const char *data) {
+	size_t nul = (str->len > 0 && str->data[str->len-1] == '\0') ? 1 : 0;
+	str->len -= nul;
+	bool ret = string_append(str, data, strlen(data)+1);
 	if (!ret)
-		buf->len += nul;
+		str->len += nul;
 	return ret;
 }
 
-bool buffer_prepend(Buffer *buf, const void *data, size_t len) {
-	return buffer_insert(buf, 0, data, len);
+bool string_prepend(String *str, const void *data, size_t len) {
+	return string_insert(str, 0, data, len);
 }
 
-bool buffer_prepend0(Buffer *buf, const char *data) {
-	return buffer_prepend(buf, data, strlen(data) + (buf->len == 0));
+bool string_prepend0(String *str, const char *data) {
+	return string_prepend(str, data, strlen(data) + (str->len == 0));
 }
 
-static bool buffer_vappendf(Buffer *buf, const char *fmt, va_list ap) {
+static bool buffer_vappendf(String *str, const char *fmt, va_list ap) {
 	va_list ap_save;
 	va_copy(ap_save, ap);
 	int len = vsnprintf(NULL, 0, fmt, ap);
-	if (len == -1 || !buffer_grow(buf, len+1)) {
+	if (len == -1 || !string_grow(str, len+1)) {
 		va_end(ap_save);
 		return false;
 	}
-	size_t nul = (buf->len > 0 && buf->data[buf->len-1] == '\0') ? 1 : 0;
-	buf->len -= nul;
-	bool ret = vsnprintf(buf->data+buf->len, len+1, fmt, ap_save) == len;
-	buf->len += ret ? (size_t)len+1 : nul;
+	size_t nul = (str->len > 0 && str->data[str->len-1] == '\0') ? 1 : 0;
+	str->len -= nul;
+	bool ret = vsnprintf(str->data+str->len, len+1, fmt, ap_save) == len;
+	str->len += ret ? (size_t)len+1 : nul;
 	va_end(ap_save);
 	return ret;
 }
 
-bool buffer_appendf(Buffer *buf, const char *fmt, ...) {
+bool string_appendf(String *str, const char *fmt, ...) {
 	va_list ap;
 	va_start(ap, fmt);
-	bool ret = buffer_vappendf(buf, fmt, ap);
+	bool ret = buffer_vappendf(str, fmt, ap);
 	va_end(ap);
 	return ret;
 }
 
-bool buffer_printf(Buffer *buf, const char *fmt, ...) {
-	buffer_clear(buf);
+bool string_printf(String *str, const char *fmt, ...) {
+	string_clear(str);
 	va_list ap;
 	va_start(ap, fmt);
-	bool ret = buffer_vappendf(buf, fmt, ap);
+	bool ret = buffer_vappendf(str, fmt, ap);
 	va_end(ap);
 	return ret;
 }
 
-size_t buffer_length0(Buffer *buf) {
-	size_t len = buf->len;
-	if (len > 0 && buf->data[len-1] == '\0')
+size_t string_length0(String *str) {
+	size_t len = str->len;
+	if (len > 0 && str->data[len-1] == '\0')
 		len--;
 	return len;
 }
 
-size_t buffer_length(Buffer *buf) {
-	return buf->len;
+size_t string_length(String *str) {
+	return str->len;
 }
 
-size_t buffer_capacity(Buffer *buf) {
-	return buf->size;
+size_t string_capacity(String *str) {
+	return str->size;
 }
 
-const char *buffer_content(Buffer *buf) {
-	return buf->data;
+const char *string_content(String *str) {
+	return str->data;
 }
 
-const char *buffer_content0(Buffer *buf) {
-	if (buf->len == 0 || !buffer_terminate(buf))
+const char *string_content0(String *str) {
+	if (str->len == 0 || !string_terminate(str))
 		return "";
-	return buf->data;
+	return str->data;
 }
 
-char *buffer_move(Buffer *buf) {
-	char *data = buf->data;
-	buffer_init(buf);
+char *string_move(String *str) {
+	char *data = str->data;
+	string_init(str);
 	return data;
 }

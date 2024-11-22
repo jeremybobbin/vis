@@ -72,7 +72,7 @@
 
 typedef struct {
 	UiTerm uiterm;
-	Buffer buf;
+	String buf;
 	FILE *fp;
 	char *term;
 	struct termios termios;
@@ -106,14 +106,14 @@ static void cursor_visible(FILE *fp, bool visible) {
 
 static void ui_vt100_blit(UiTerm *tui) {
 	UiVt100 *vtui = (UiVt100*)tui;
-	Buffer *buf = &vtui->buf;
-	buffer_clear(buf);
+	String *buf = &vtui->buf;
+	string_clear(buf);
 	CellAttr attr = CELL_ATTR_NORMAL;
 	CellColor fg = CELL_COLOR_DEFAULT, bg = CELL_COLOR_DEFAULT;
 	int w = tui->width, h = tui->height;
 	Cell *cell = tui->cells;
 	/* reposition cursor, erase screen, reset attributes */
-	buffer_append0(buf, "\x1b[H" "\x1b[J" "\x1b[0m");
+	string_append0(buf, "\x1b[H" "\x1b[J" "\x1b[0m");
 	for (int y = 0; y < h; y++) {
 		for (int x = 0; x < w; x++) {
 			CellStyle *style = &cell->style;
@@ -135,7 +135,7 @@ static void ui_vt100_blit(UiTerm *tui) {
 					CellAttr a = cell_attrs[i].attr;
 					if ((style->attr & a) == (attr & a))
 						continue;
-					buffer_appendf(buf, "\x1b[%sm",
+					string_appendf(buf, "\x1b[%sm",
 					               style->attr & a ? 
 					               cell_attrs[i].on :
 					               cell_attrs[i].off);
@@ -147,9 +147,9 @@ static void ui_vt100_blit(UiTerm *tui) {
 			if (!cell_color_equal(fg, style->fg)) {
 				fg = style->fg;
 				if (fg.index != (uint8_t)-1) {
-					buffer_appendf(buf, "\x1b[%dm", 30 + fg.index);
+					string_appendf(buf, "\x1b[%dm", 30 + fg.index);
 				} else {
-					buffer_appendf(buf, "\x1b[38;2;%d;%d;%dm",
+					string_appendf(buf, "\x1b[38;2;%d;%d;%dm",
 					               fg.r, fg.g, fg.b);
 				}
 			}
@@ -157,18 +157,18 @@ static void ui_vt100_blit(UiTerm *tui) {
 			if (!cell_color_equal(bg, style->bg)) {
 				bg = style->bg;
 				if (bg.index != (uint8_t)-1) {
-					buffer_appendf(buf, "\x1b[%dm", 40 + bg.index);
+					string_appendf(buf, "\x1b[%dm", 40 + bg.index);
 				} else {
-					buffer_appendf(buf, "\x1b[48;2;%d;%d;%dm",
+					string_appendf(buf, "\x1b[48;2;%d;%d;%dm",
 					               bg.r, bg.g, bg.b);
 				}
 			}
 
-			buffer_append0(buf, cell->data);
+			string_append0(buf, cell->data);
 			cell++;
 		}
 	}
-	output(vtui->fp, buffer_content(buf), buffer_length0(buf));
+	output(vtui->fp, string_content(buf), string_length0(buf));
 }
 
 static void ui_vt100_clear(UiTerm *tui) { }
@@ -230,12 +230,12 @@ static UiTerm *ui_vt100_new(void) {
 	UiVt100 *vtui = calloc(1, sizeof *vtui);
 	if (!vtui)
 		return NULL;
-	buffer_init(&vtui->buf);
+	string_init(&vtui->buf);
 	return (UiTerm*)vtui;
 }
 
 static void ui_vt100_free(UiTerm *tui) {
 	UiVt100 *vtui = (UiVt100*)tui;
 	ui_vt100_suspend(tui);
-	buffer_release(&vtui->buf);
+	string_release(&vtui->buf);
 }

@@ -1117,8 +1117,8 @@ static const char *unicode_info(Vis *vis, const char *keys, const Arg *arg) {
 	char *grapheme = text_bytes_alloc0(txt, start, end-start), *codepoint = grapheme;
 	if (!grapheme)
 		return keys;
-	Buffer info;
-	buffer_init(&info);
+	String info;
+	string_init(&info);
 	mbstate_t ps = { 0 };
 	Iterator it = text_iterator_get(txt, start);
 	for (size_t pos = start; it.pos < end; pos = it.pos) {
@@ -1134,21 +1134,21 @@ static const char *unicode_info(Vis *vis, const char *keys, const Arg *arg) {
 			combining = (wc != L'\0' && wcwidth(wc) == 0);
 		unsigned char ch = *codepoint;
 		if (ch < 128 && !isprint(ch))
-			buffer_appendf(&info, "<^%c> ", ch == 127 ? '?' : ch + 64);
+			string_appendf(&info, "<^%c> ", ch == 127 ? '?' : ch + 64);
 		else
-			buffer_appendf(&info, "<%s%.*s> ", combining ? " " : "", (int)len, codepoint);
+			string_appendf(&info, "<%s%.*s> ", combining ? " " : "", (int)len, codepoint);
 		if (arg->s[0] == 'a') { // UNICODE - a
-			buffer_appendf(&info, "U+%04"PRIX32" ", (uint32_t)wc);
+			string_appendf(&info, "U+%04"PRIX32" ", (uint32_t)wc);
 		} else { // UTF-8 - 8
 			for (size_t i = 0; i < len; i++)
-				buffer_appendf(&info, "%02x ", (uint8_t)codepoint[i]);
+				string_appendf(&info, "%02x ", (uint8_t)codepoint[i]);
 		}
 		codepoint += len;
 	}
-	vis_info_show(vis, "%s", buffer_content0(&info));
+	vis_info_show(vis, "%s", string_content0(&info));
 err:
 	free(grapheme);
-	buffer_release(&info);
+	string_release(&info);
 	return keys;
 }
 

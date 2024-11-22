@@ -541,8 +541,8 @@ static void skip_spaces(const char **s) {
 }
 
 static char *parse_until(const char **s, const char *until, const char *escchars, int type){
-	Buffer buf;
-	buffer_init(&buf);
+	String buf;
+	string_init(&buf);
 	size_t len = strlen(until);
 	bool escaped = false;
 
@@ -568,19 +568,19 @@ static char *parse_until(const char **s, const char *until, const char *escchars
 				bool delim = memchr(until, c, len);
 				bool esc = escchars && memchr(escchars, c, strlen(escchars));
 				if (!delim && !esc)
-					buffer_append(&buf, "\\", 1);
+					string_append(&buf, "\\", 1);
 			}
 		}
 
-		if (!buffer_append(&buf, &c, 1)) {
-			buffer_release(&buf);
+		if (!string_append(&buf, &c, 1)) {
+			string_release(&buf);
 			return NULL;
 		}
 	}
 
-	buffer_terminate(&buf);
+	string_terminate(&buf);
 
-	return buffer_move(&buf);
+	return string_move(&buf);
 }
 
 static char *parse_delimited(const char **s, int type) {
@@ -615,21 +615,21 @@ static char *parse_text(const char **s, Count *count) {
 		return (!text && *s != before) ? strdup("") : text;
 	}
 
-	Buffer buf;
-	buffer_init(&buf);
+	String buf;
+	string_init(&buf);
 	const char *start = *s + 1;
 	bool dot = false;
 
 	for ((*s)++; **s && (!dot || **s != '\n'); (*s)++)
 		dot = (**s == '.');
 
-	if (!dot || !buffer_put(&buf, start, *s - start - 1) ||
-	    !buffer_append(&buf, "\0", 1)) {
-		buffer_release(&buf);
+	if (!dot || !string_put(&buf, start, *s - start - 1) ||
+	    !string_append(&buf, "\0", 1)) {
+		string_release(&buf);
 		return NULL;
 	}
 
-	return buffer_move(&buf);
+	return string_move(&buf);
 }
 
 static char *parse_shellcmd(Vis *vis, const char **s) {
@@ -659,16 +659,16 @@ static bool valid_cmdname(const char *s) {
 }
 
 static char *parse_cmdname(const char **s) {
-	Buffer buf;
-	buffer_init(&buf);
+	String buf;
+	string_init(&buf);
 
 	skip_spaces(s);
 	while (valid_cmdname(*s))
-		buffer_append(&buf, (*s)++, 1);
+		string_append(&buf, (*s)++, 1);
 
-	buffer_terminate(&buf);
+	string_terminate(&buf);
 
-	return buffer_move(&buf);
+	return string_move(&buf);
 }
 
 static Regex *parse_regex(Vis *vis, const char **s) {
@@ -1294,11 +1294,11 @@ enum SamError sam_cmd(Vis *vis, const char *s) {
 }
 
 /* process text input, substitute register content for backreferences etc. */
-Buffer text(Vis *vis, const char *text) {
-	Buffer buf;
-	buffer_init(&buf);
+String text(Vis *vis, const char *text) {
+	String buf;
+	string_init(&buf);
 	for (size_t len = strcspn(text, "\\&"); *text; len = strcspn(++text, "\\&")) {
-		buffer_append(&buf, text, len);
+		string_append(&buf, text, len);
 		text += len;
 		enum VisRegister regid = VIS_REG_INVALID;
 		switch (text[0]) {
@@ -1325,7 +1325,7 @@ Buffer text(Vis *vis, const char *text) {
 			data = text;
 			reglen = 1;
 		}
-		buffer_append(&buf, data, reglen);
+		string_append(&buf, data, reglen);
 	}
 out:
 	return buf;
@@ -1334,9 +1334,9 @@ out:
 static bool cmd_insert(Vis *vis, Win *win, Command *cmd, const char *argv[], Selection *sel, Filerange *range) {
 	if (!win)
 		return false;
-	Buffer buf = text(vis, argv[1]);
-	size_t len = buffer_length(&buf);
-	char *data = buffer_move(&buf);
+	String buf = text(vis, argv[1]);
+	size_t len = string_length(&buf);
+	char *data = string_move(&buf);
 	bool ret = sam_insert(win, sel, range->start, data, len, cmd->count.start);
 	if (!ret)
 		free(data);
@@ -1346,9 +1346,9 @@ static bool cmd_insert(Vis *vis, Win *win, Command *cmd, const char *argv[], Sel
 static bool cmd_append(Vis *vis, Win *win, Command *cmd, const char *argv[], Selection *sel, Filerange *range) {
 	if (!win)
 		return false;
-	Buffer buf = text(vis, argv[1]);
-	size_t len = buffer_length(&buf);
-	char *data = buffer_move(&buf);
+	String buf = text(vis, argv[1]);
+	size_t len = string_length(&buf);
+	char *data = string_move(&buf);
 	bool ret = sam_insert(win, sel, range->end, data, len, cmd->count.start);
 	if (!ret)
 		free(data);
@@ -1358,9 +1358,9 @@ static bool cmd_append(Vis *vis, Win *win, Command *cmd, const char *argv[], Sel
 static bool cmd_change(Vis *vis, Win *win, Command *cmd, const char *argv[], Selection *sel, Filerange *range) {
 	if (!win)
 		return false;
-	Buffer buf = text(vis, argv[1]);
-	size_t len = buffer_length(&buf);
-	char *data = buffer_move(&buf);
+	String buf = text(vis, argv[1]);
+	size_t len = string_length(&buf);
+	char *data = string_move(&buf);
 	bool ret = sam_change(win, sel, range, data, len, cmd->count.start);
 	if (!ret)
 		free(data);
@@ -1727,7 +1727,7 @@ static bool cmd_write(Vis *vis, Win *win, Command *cmd, const char *argv[], Sele
 }
 
 static ssize_t read_buffer(void *context, char *data, size_t len) {
-	buffer_append(context, data, len);
+	string_append(context, data, len);
 	return len;
 }
 
@@ -1735,25 +1735,25 @@ static bool cmd_filter(Vis *vis, Win *win, Command *cmd, const char *argv[], Sel
 	if (!win)
 		return false;
 
-	Buffer bufout, buferr;
-	buffer_init(&bufout);
-	buffer_init(&buferr);
+	String bufout, buferr;
+	string_init(&bufout);
+	string_init(&buferr);
 
 	int status = vis_pipe(vis, win->file, range, &argv[1], &bufout, read_buffer, &buferr, read_buffer);
 
 	if (vis->interrupted) {
 		vis_info_show(vis, "Command cancelled");
 	} else if (status == 0) {
-		size_t len = buffer_length(&bufout);
-		char *data = buffer_move(&bufout);
+		size_t len = string_length(&bufout);
+		char *data = string_move(&bufout);
 		if (!sam_change(win, sel, range, data, len, 1))
 			free(data);
 	} else {
-		vis_info_show(vis, "Command failed %s", buffer_content0(&buferr));
+		vis_info_show(vis, "Command failed %s", string_content0(&buferr));
 	}
 
-	buffer_release(&bufout);
-	buffer_release(&buferr);
+	string_release(&bufout);
+	string_release(&buferr);
 
 	return !vis->interrupted && status == 0;
 }
@@ -1776,17 +1776,17 @@ static bool cmd_pipein(Vis *vis, Win *win, Command *cmd, const char *argv[], Sel
 static bool cmd_pipeout(Vis *vis, Win *win, Command *cmd, const char *argv[], Selection *sel, Filerange *range) {
 	if (!win)
 		return false;
-	Buffer buferr;
-	buffer_init(&buferr);
+	String buferr;
+	string_init(&buferr);
 
 	int status = vis_pipe(vis, win->file, range, (const char*[]){ argv[1], NULL }, NULL, NULL, &buferr, read_buffer);
 
 	if (vis->interrupted)
 		vis_info_show(vis, "Command cancelled");
 	else if (status != 0)
-		vis_info_show(vis, "Command failed %s", buffer_content0(&buferr));
+		vis_info_show(vis, "Command failed %s", string_content0(&buferr));
 
-	buffer_release(&buferr);
+	string_release(&buferr);
 
 	return !vis->interrupted && status == 0;
 }

@@ -79,7 +79,7 @@ static void window_status_update(Vis *vis, Win *win) {
 	         vis_macro_recording(vis) ? " @": "");
 
 	int count = vis_count_get(vis);
-	const char *keys = buffer_content0(&vis->input_queue);
+	const char *keys = string_content0(&vis->input_queue);
 	if (keys && keys[0])
 		snprintf(right_parts[right_count++], sizeof(right_parts[0]), "%s", keys);
 	else if (count != VIS_COUNT_UNKNOWN)
@@ -1416,7 +1416,7 @@ static int vis_index(lua_State *L) {
 		}
 
 		if (strcmp(key, "input_queue") == 0) {
-			lua_pushstring(L, buffer_content0(&vis->input_queue));
+			lua_pushstring(L, string_content0(&vis->input_queue));
 			return 1;
 		}
 
