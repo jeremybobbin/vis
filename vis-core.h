@@ -106,11 +106,11 @@ typedef struct {
 } TextObject;
 
 /* a macro is just a sequence of symbolic keys as received from ui->getkey */
-typedef Buffer Macro;
-#define macro_init buffer_init
-#define macro_release buffer_release
-#define macro_reset buffer_clear
-#define macro_append buffer_append0
+typedef String Macro;
+#define macro_init string_init
+#define macro_release string_release
+#define macro_reset string_clear
+#define macro_append string_append0
 
 typedef struct {             /** collects all information until an operator is executed */
 	int count;
@@ -193,7 +193,7 @@ struct Vis {
 	char key[VIS_KEY_LENGTH_MAX];        /* last pressed key as reported from the UI */
 	char key_current[VIS_KEY_LENGTH_MAX];/* current key being processed by the input queue */
 	char key_prev[VIS_KEY_LENGTH_MAX];   /* previous key which was processed by the input queue */
-	Buffer input_queue;                  /* holds pending input keys */
+	String input_queue;                  /* holds pending input keys */
 	bool errorhandler;                   /* whether we are currently in an error handler, used to avoid recursion */
 	Action action;                       /* current action which is in progress */
 	Action action_prev;                  /* last operator action used by the repeat (dot) command */
