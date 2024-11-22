@@ -111,7 +111,9 @@ static void file_free(Vis *vis, File *file) {
 	for (size_t i = 0; i < LENGTH(file->marks); i++)
 		mark_release(&file->marks[i]);
 	text_free(file->text);
-	free((char*)file->name);
+	if (!file->internal) {
+		free((char*)file->name);
+	}
 
 	if (file->prev)
 		file->prev->next = file->next;
@@ -218,10 +220,11 @@ err:
 }
 
 static File *file_new_internal(Vis *vis, const char *filename) {
-	File *file = file_new(vis, filename);
+	File *file = file_new(vis, NULL);
 	if (file) {
 		file->refcount = 1;
 		file->internal = true;
+		file->name = filename;
 	}
 	return file;
 }

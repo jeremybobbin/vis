@@ -74,7 +74,7 @@ static void window_status_update(Vis *vis, Win *win) {
 		strcpy(left_parts[left_count++], mode);
 
 	snprintf(left_parts[left_count++], sizeof(left_parts[0]), "%s%s%s",
-	         filename ? filename : "[No Name]",
+	         (filename && !file->internal) ? filename : "[No Name]",
 	         text_modified(txt) ? " [+]" : "",
 	         vis_macro_recording(vis) ? " @": "");
 
@@ -2154,6 +2154,7 @@ static int file_index(lua_State *L) {
 			lua_pushunsigned(L, stat.st_mode & 0777);
 			return 1;
 		}
+
 	}
 
 	return index_common(L);
