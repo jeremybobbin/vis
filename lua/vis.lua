@@ -172,18 +172,18 @@ local events = {
 	WIN_STATUS     = "Event::WIN_STATUS",     -- see @{win_status}
 }
 
-events.file_close     = function(...) return events.emit(events.FILE_CLOSE,     ...) end
-events.file_open      = function(...) return events.emit(events.FILE_OPEN,      ...) end
-events.file_save_post = function(...) return events.emit(events.FILE_SAVE_POST, ...) end
-events.file_save_pre  = function(...) return events.emit(events.FILE_SAVE_PRE,  ...) end
-events.init           = function(...) return events.emit(events.INIT,           ...) end
-events.input          = function(...) return events.emit(events.INPUT,          ...) end
-events.quit           = function(...) return events.emit(events.QUIT,           ...) end
-events.start          = function(...) return events.emit(events.START,          ...) end
-events.win_close      = function(...) return events.emit(events.WIN_CLOSE,      ...) end
-events.win_highlight  = function(...) return events.emit(events.WIN_HIGHLIGHT,  ...) end
-events.win_open       = function(...) return events.emit(events.WIN_OPEN,       ...) end
-events.win_status     = function(...) return events.emit(events.WIN_STATUS,     ...) end
+events.file_close     = function(file, ...) if file.internal then     return true end return events.emit(events.FILE_CLOSE,       file, ...) end
+events.file_open      = function(file, ...) if file.internal then     return true end return events.emit(events.FILE_OPEN,        file, ...) end
+events.file_save_post = function(file, ...) if file.internal then     return true end return events.emit(events.FILE_SAVE_POST,   file, ...) end
+events.file_save_pre  = function(file, ...) if file.internal then     return true end return events.emit(events.FILE_SAVE_PRE,    file, ...) end
+events.init           = function(...)                                                 return events.emit(events.INIT,                   ...) end
+events.input          = function(...)                                                 return events.emit(events.INPUT,                  ...) end
+events.quit           = function(...)                                                 return events.emit(events.QUIT,                   ...) end
+events.start          = function(...)                                                 return events.emit(events.START,                  ...) end
+events.win_close      = function(win, ...)  if win.file.internal then return true end return events.emit(events.WIN_CLOSE,         win, ...) end
+events.win_highlight  = function(win, ...)  if win.file.internal then return true end return events.emit(events.WIN_HIGHLIGHT,     win, ...) end
+events.win_open       = function(win, ...)  if win.file.internal then return true end return events.emit(events.WIN_OPEN,          win, ...) end
+events.win_status     = function(win, ...)  if win.file.internal then return true end return events.emit(events.WIN_STATUS,        win, ...) end
 
 local handlers = {}
 
