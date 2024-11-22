@@ -26,7 +26,7 @@
 #include <fcntl.h>
 #include "sam.h"
 #include "vis-core.h"
-#include "buffer.h"
+#include "string.h"
 #include "text.h"
 #include "text-motions.h"
 #include "text-objects.h"
