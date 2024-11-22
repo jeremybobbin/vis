@@ -9,7 +9,7 @@
 #include "text-util.h"
 #include "map.h"
 #include "array.h"
-#include "buffer.h"
+#include "string.h"
 #include "util.h"
 #include "libkey.h"
 
