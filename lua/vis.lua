@@ -158,32 +158,32 @@ end
 --- Event names.
 --- @table events
 local events = {
-	FILE_CLOSE = "Event::FILE_CLOSE", -- see @{file_close}
-	FILE_OPEN = "Event::FILE_OPEN", -- see @{file_open}
+	FILE_CLOSE     = "Event::FILE_CLOSE",     -- see @{file_close}
+	FILE_OPEN      = "Event::FILE_OPEN",      -- see @{file_open}
 	FILE_SAVE_POST = "Event::FILE_SAVE_POST", -- see @{file_save_post}
-	FILE_SAVE_PRE = "Event::FILE_SAVE_PRE", -- see @{file_save_pre}
-	INIT = "Event::INIT", -- see @{init}
-	INPUT = "Event::INPUT", -- see @{input}
-	QUIT = "Event::QUIT", -- see @{quit}
-	START = "Event::START", -- see @{start}
-	WIN_CLOSE = "Event::WIN_CLOSE", -- see @{win_close}
-	WIN_HIGHLIGHT = "Event::WIN_HIGHLIGHT", -- see @{win_highlight}
-	WIN_OPEN = "Event::WIN_OPEN", -- see @{win_open}
-	WIN_STATUS = "Event::WIN_STATUS", -- see @{win_status}
+	FILE_SAVE_PRE  = "Event::FILE_SAVE_PRE",  -- see @{file_save_pre}
+	INIT           = "Event::INIT",           -- see @{init}
+	INPUT          = "Event::INPUT",          -- see @{input}
+	QUIT           = "Event::QUIT",           -- see @{quit}
+	START          = "Event::START",          -- see @{start}
+	WIN_CLOSE      = "Event::WIN_CLOSE",      -- see @{win_close}
+	WIN_HIGHLIGHT  = "Event::WIN_HIGHLIGHT",  -- see @{win_highlight}
+	WIN_OPEN       = "Event::WIN_OPEN",       -- see @{win_open}
+	WIN_STATUS     = "Event::WIN_STATUS",     -- see @{win_status}
 }
 
-events.file_close = function(...) events.emit(events.FILE_CLOSE, ...) end
-events.file_open = function(...) events.emit(events.FILE_OPEN, ...) end
-events.file_save_post = function(...) events.emit(events.FILE_SAVE_POST, ...) end
-events.file_save_pre = function(...) return events.emit(events.FILE_SAVE_PRE, ...) end
-events.init = function(...) events.emit(events.INIT, ...) end
-events.input = function(...) return events.emit(events.INPUT, ...) end
-events.quit = function(...) events.emit(events.QUIT, ...) end
-events.start = function(...) events.emit(events.START, ...) end
-events.win_close = function(...) events.emit(events.WIN_CLOSE, ...) end
-events.win_highlight = function(...) events.emit(events.WIN_HIGHLIGHT, ...) end
-events.win_open = function(...) events.emit(events.WIN_OPEN, ...) end
-events.win_status = function(...) events.emit(events.WIN_STATUS, ...) end
+events.file_close     = function(...) return events.emit(events.FILE_CLOSE,     ...) end
+events.file_open      = function(...) return events.emit(events.FILE_OPEN,      ...) end
+events.file_save_post = function(...) return events.emit(events.FILE_SAVE_POST, ...) end
+events.file_save_pre  = function(...) return events.emit(events.FILE_SAVE_PRE,  ...) end
+events.init           = function(...) return events.emit(events.INIT,           ...) end
+events.input          = function(...) return events.emit(events.INPUT,          ...) end
+events.quit           = function(...) return events.emit(events.QUIT,           ...) end
+events.start          = function(...) return events.emit(events.START,          ...) end
+events.win_close      = function(...) return events.emit(events.WIN_CLOSE,      ...) end
+events.win_highlight  = function(...) return events.emit(events.WIN_HIGHLIGHT,  ...) end
+events.win_open       = function(...) return events.emit(events.WIN_OPEN,       ...) end
+events.win_status     = function(...) return events.emit(events.WIN_STATUS,     ...) end
 
 local handlers = {}
 
