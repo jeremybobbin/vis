@@ -3,14 +3,14 @@
 
 #include "vis-core.h"
 
-static Buffer *register_buffer(Register *reg, size_t slot) {
-	Buffer *buf = array_get(&reg->values, slot);
+static String *register_buffer(Register *reg, size_t slot) {
+	String *buf = array_get(&reg->values, slot);
 	if (buf)
 		return buf;
 	if (array_resize(&reg->values, slot) && (buf = array_get(&reg->values, slot)))
 		return buf;
-	Buffer new;
-	buffer_init(&new);
+	String new;
+	string_init(&new);
 	if (!array_add(&reg->values, &new))
 		return NULL;
 	size_t capacity = array_capacity(&reg->values);
@@ -22,14 +22,14 @@ static Buffer *register_buffer(Register *reg, size_t slot) {
 }
 
 static ssize_t read_buffer(void *context, char *data, size_t len) {
-	buffer_append(context, data, len);
+	string_append(context, data, len);
 	return len;
 }
 
 bool register_init(Register *reg) {
-	Buffer buf;
-	buffer_init(&buf);
-	array_init_sized(&reg->values, sizeof(Buffer));
+	String buf;
+	string_init(&buf);
+	array_init_sized(&reg->values, sizeof(String));
 	return array_add(&reg->values, &buf);
 }
 
@@ -38,7 +38,7 @@ void register_release(Register *reg) {
 		return;
 	size_t n = array_capacity(&reg->values);
 	for (size_t i = 0; i < n; i++)
-		buffer_release(array_get(&reg->values, i));
+		string_release(array_get(&reg->values, i));
 	array_release(&reg->values);
 }
 
@@ -48,34 +48,34 @@ const char *register_slot_get(Vis *vis, Register *reg, size_t slot, size_t *len)
 	switch (reg->type) {
 	case REGISTER_NORMAL:
 	{
-		Buffer *buf = array_get(&reg->values, slot);
+		String *buf = array_get(&reg->values, slot);
 		if (!buf)
 			return NULL;
-		buffer_terminate(buf);
+		string_terminate(buf);
 		if (len)
-			*len = buffer_length0(buf);
-		return buffer_content0(buf);
+			*len = string_length0(buf);
+		return string_content0(buf);
 	}
 	case REGISTER_NUMBER:
 	{
-		Buffer *buf = array_get(&reg->values, 0);
+		String *buf = array_get(&reg->values, 0);
 		if (!buf)
 			return NULL;
-		buffer_printf(buf, "%zu", slot+1);
+		string_printf(buf, "%zu", slot+1);
 		if (len)
-			*len = buffer_length0(buf);
-		return buffer_content0(buf);
+			*len = string_length0(buf);
+		return string_content0(buf);
 	}
 	case REGISTER_CLIPBOARD:
 	{
-		Buffer buferr;
+		String buferr;
 		enum VisRegister id = reg - vis->registers;
 		const char *cmd[] = { VIS_CLIPBOARD, "--paste", "--selection", NULL, NULL };
-		buffer_init(&buferr);
-		Buffer *buf = array_get(&reg->values, slot);
+		string_init(&buferr);
+		String *buf = array_get(&reg->values, slot);
 		if (!buf)
 			return NULL;
-		buffer_clear(buf);
+		string_clear(buf);
 
 		if (id == VIS_REG_PRIMARY)
 			cmd[3] = "primary";
@@ -86,11 +86,11 @@ const char *register_slot_get(Vis *vis, Register *reg, size_t slot, size_t *len)
 			cmd, buf, read_buffer, &buferr, read_buffer);
 
 		if (status != 0)
-			vis_info_show(vis, "Command failed %s", buffer_content0(&buferr));
-		buffer_release(&buferr);
+			vis_info_show(vis, "Command failed %s", string_content0(&buferr));
+		string_release(&buferr);
 		if (len)
-			*len = buffer_length0(buf);
-		return buffer_content0(buf);
+			*len = string_length0(buf);
+		return string_content0(buf);
 	}
 	case REGISTER_BLACKHOLE:
 	default:
@@ -105,8 +105,8 @@ const char *register_get(Vis *vis, Register *reg, size_t *len) {
 bool register_slot_put(Vis *vis, Register *reg, size_t slot, const char *data, size_t len) {
 	if (reg->type != REGISTER_NORMAL)
 		return false;
-	Buffer *buf = register_buffer(reg, slot);
-	return buf && buffer_put(buf, data, len);
+	String *buf = register_buffer(reg, slot);
+	return buf && string_put(buf, data, len);
 }
 
 bool register_put(Vis *vis, Register *reg, const char *data, size_t len) {
@@ -122,16 +122,16 @@ static bool register_slot_append_range(Register *reg, size_t slot, Text *txt, Fi
 	switch (reg->type) {
 	case REGISTER_NORMAL:
 	{
-		Buffer *buf = register_buffer(reg, slot);
+		String *buf = register_buffer(reg, slot);
 		if (!buf)
 			return false;
 		size_t len = text_range_size(range);
-		if (len == SIZE_MAX || !buffer_grow(buf, len+1))
+		if (len == SIZE_MAX || !string_grow(buf, len+1))
 			return false;
 		if (buf->len > 0 && buf->data[buf->len-1] == '\0')
 			buf->len--;
 		buf->len += text_bytes_get(txt, range->start, len, buf->data + buf->len);
-		return buffer_append(buf, "\0", 1);
+		return string_append(buf, "\0", 1);
 	}
 	default:
 		return false;
@@ -145,21 +145,21 @@ bool register_slot_put_range(Vis *vis, Register *reg, size_t slot, Text *txt, Fi
 	switch (reg->type) {
 	case REGISTER_NORMAL:
 	{
-		Buffer *buf = register_buffer(reg, slot);
+		String *buf = register_buffer(reg, slot);
 		if (!buf)
 			return false;
 		size_t len = text_range_size(range);
-		if (len == SIZE_MAX || !buffer_reserve(buf, len+1))
+		if (len == SIZE_MAX || !string_reserve(buf, len+1))
 			return false;
 		buf->len = text_bytes_get(txt, range->start, len, buf->data);
-		return buffer_append(buf, "\0", 1);
+		return string_append(buf, "\0", 1);
 	}
 	case REGISTER_CLIPBOARD:
 	{
-		Buffer buferr;
+		String buferr;
 		const char *cmd[] = { VIS_CLIPBOARD, "--copy", "--selection", NULL, NULL };
 		enum VisRegister id = reg - vis->registers;
-		buffer_init(&buferr);
+		string_init(&buferr);
 
 		if (id == VIS_REG_PRIMARY)
 			cmd[3] = "primary";
@@ -170,8 +170,8 @@ bool register_slot_put_range(Vis *vis, Register *reg, size_t slot, Text *txt, Fi
 			cmd, NULL, NULL, &buferr, read_buffer);
 
 		if (status != 0)
-			vis_info_show(vis, "Command failed %s", buffer_content0(&buferr));
-		buffer_release(&buferr);
+			vis_info_show(vis, "Command failed %s", string_content0(&buferr));
+		string_release(&buferr);
 		return status == 0;
 	}
 	case REGISTER_BLACKHOLE:
@@ -259,11 +259,11 @@ bool vis_register_set(Vis *vis, enum VisRegister id, Array *data) {
 		return false;
 	size_t len = array_length(data);
 	for (size_t i = 0; i < len; i++) {
-		Buffer *buf = register_buffer(reg, i);
+		String *buf = register_buffer(reg, i);
 		if (!buf)
 			return false;
 		TextString *string = array_get(data, i);
-		if (!buffer_put(buf, string->data, string->len))
+		if (!string_put(buf, string->data, string->len))
 			return false;
 	}
 	return register_resize(reg, len);
@@ -277,10 +277,10 @@ Array vis_register_get(Vis *vis, enum VisRegister id) {
 		size_t len = array_length(&reg->values);
 		array_reserve(&data, len);
 		for (size_t i = 0; i < len; i++) {
-			Buffer *buf = array_get(&reg->values, i);
+			String *buf = array_get(&reg->values, i);
 			TextString string = {
-				.data = buffer_content(buf),
-				.len = buffer_length(buf),
+				.data = string_content(buf),
+				.len = string_length(buf),
 			};
 			array_add(&data, &string);
 		}
