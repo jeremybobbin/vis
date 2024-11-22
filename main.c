@@ -19,7 +19,7 @@
 #include "libutf.h"
 #include "libkey.h"
 #include "array.h"
-#include "buffer.h"
+#include "string.h"
 
 #define PAGE      INT_MAX
 #define PAGE_HALF (INT_MAX-1)

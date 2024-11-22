@@ -38,7 +38,7 @@
  */
 #include <stdio.h>
 #include <termios.h>
-#include "buffer.h"
+#include "string.h"
 
 #define ui_term_backend_init ui_vt100_init
 #define ui_term_backend_blit ui_vt100_blit

@@ -4,7 +4,7 @@
 include config.mk
 
 SRC = array.c \
-	buffer.c \
+	string.c \
 	libutf.c \
 	main.c \
 	map.c \
@@ -76,7 +76,7 @@ ui-terminal-keytab.h: keytab.in
 
 map.o: map.h
 array.o: array.h util.h
-buffer.o: buffer.h util.h
+string.o: string.h util.h
 libutf.o: libutf.h util.h
 
 text.o: text.h  text-internal.h array.o util.h text-util.o text-motions.o
@@ -88,7 +88,7 @@ text-objects.o: text-objects.h text-motions.o text-util.o util.h
 $(REGEX_SRC:.c=.o): text-regex.h $(REGEX_SRC)
 
 
-sam.o: sam.h vis-core.h buffer.o text.o text-motions.o text-objects.o $(REGEX_SRC:.c=.o) util.h vis-cmds.c
+sam.o: sam.h vis-core.h string.o text.o text-motions.o text-objects.o $(REGEX_SRC:.c=.o) util.h vis-cmds.c
 text-util.o: text-util.h util.h
 ui-terminal.o: libkey.o ui-terminal-keytab.h vis.h vis-core.h text.h util.h text-util.h ui-terminal-vt100.c ui-terminal-curses.c
 view.o: view.h text.h text-motions.h text-util.h util.h
@@ -105,12 +105,12 @@ vis-text-objects.o: vis-core.h text-objects.h util.h
 
 libkey.o: libkey.h map.o
 vis.o: vis.h text-util.h util.h vis-core.h ui.h text-motions.o text-objects.o sam.o ui-terminal.o # TODO ui.o
-main.o: config.h util.h array.o buffer.o libutf.o libkey.o text-util.o text-motions.o text-objects.o ui-terminal.o vis-lua.o vis.o
+main.o: config.h util.h array.o string.o libutf.o libkey.o text-util.o text-motions.o text-objects.o ui-terminal.o vis-lua.o vis.o
 
 vis: \
 	$(REGEX_SRC:.c=.o) \
 	array.o \
-	buffer.o \
+	string.o \
 	map.o \
 	sam.o \
 	text-common.o \

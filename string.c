@@ -3,7 +3,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 
-#include "buffer.h"
+#include "string.h"
 #include "util.h"
 
 #ifndef STRING_SIZE
