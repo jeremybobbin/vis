@@ -249,11 +249,6 @@ static bool cmd_set(Vis *vis, Win *win, Command *cmd, const char *argv[], Select
 		vis->shell = shell;
 		break;
 	}
-	case OPTION_ESCDELAY:
-	{
-		vis_info_show(vis, "TODO: ESCDELAY");
-		break;
-	}
 	case OPTION_EXPANDTAB:
 		vis->expandtab = toggle ? !vis->expandtab : arg.b;
 		break;
