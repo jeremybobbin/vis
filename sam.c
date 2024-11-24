@@ -627,14 +627,58 @@ static char *parse_text(const char **s, Count *count) {
 }
 
 static char *parse_shellcmd(Vis *vis, const char **s) {
+	String buf;
+	bool escaped = false;
+	char quote = '\0';
+
+	string_init(&buf);
 	skip_spaces(s);
-	char *cmd = parse_until(s, "\n", NULL, false);
-	if (!cmd) {
+
+	for (; **s; (*s)++) {
+		char c = **s;
+		if (!escaped && c == '\\') {
+			escaped = true;
+			continue;
+		}
+
+		if (escaped) {
+			escaped = false;
+			switch (c) {
+			case 't':
+				c = '\t';
+				break;
+			case 'n':
+				c = '\n';
+				break;
+			case '\n':
+				continue;
+			}
+		} else if (quote == '\0') {
+			if (c == '}' || c == '\n') {
+				break;
+			} else if (c == '\'') {
+				quote = '\'';
+			} else if (c == '"') {
+				quote = '"';
+			}
+		} else if (c == quote) {
+			quote = '\0';
+		}
+
+		if (!string_append(&buf, &c, 1)) {
+			string_release(&buf);
+			return NULL;
+		}
+	}
+
+	if (string_length(&buf) == 0) {
 		const char *last_cmd = register_get(vis, &vis->registers[VIS_REG_SHELL], NULL);
 		return last_cmd ? strdup(last_cmd) : NULL;
 	}
-	register_put0(vis, &vis->registers[VIS_REG_SHELL], cmd);
-	return cmd;
+
+	string_terminate(&buf);
+	register_put0(vis, &vis->registers[VIS_REG_SHELL], buf.data);
+	return string_move(&buf);
 }
 
 static void parse_argv(const char **s, const char *argv[], size_t maxarg) {
