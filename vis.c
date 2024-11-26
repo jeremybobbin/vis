@@ -1295,10 +1295,10 @@ int vis_run(Vis *vis) {
 	char buf[BUFSIZ];
 	char key[VIS_KEY_LENGTH_MAX];
 
-	if (!vis->windows)
-		return EXIT_SUCCESS;
 	if (vis->exit_status != -1)
 		return vis->exit_status;
+	if (!vis->windows)
+		return EXIT_SUCCESS;
 	vis->running = true;
 
 	vis_event_emit(vis, VIS_EVENT_START);
@@ -1561,7 +1561,9 @@ bool vis_count_iterator_next(VisCountIterator *it) {
 
 void vis_exit(Vis *vis, int status) {
 	vis->running = false;
-	vis->exit_status = status;
+	if (vis->exit_status == -1) {
+		vis->exit_status = status;
+	}
 }
 
 void vis_insert_tab(Vis *vis) {
