@@ -63,9 +63,6 @@ all: $(ELF)
 .c.o:
 	$(CC) ${CFLAGS} ${CFLAGS_VIS} ${CFLAGS_STD} ${CFLAGS_EXTRA} -c $< -o $@
 
-config.h:
-	cp config.def.h config.h
-
 config.mk:
 	@touch $@
 
@@ -209,7 +206,7 @@ clean:
 
 distclean: clean testclean
 	@echo cleaning build configuration
-	@rm -f config.h config.mk
+	@rm -f config.mk
 
 dist: distclean
 	@echo creating dist tarball
