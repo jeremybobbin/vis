@@ -475,8 +475,8 @@ static void sam_transcript_init(Transcript *t) {
 	memset(t, 0, sizeof *t);
 }
 
-static bool sam_transcript_error(Transcript *t, enum SamError error) {
-	if (t->changes)
+static enum SamError sam_transcript_error(Transcript *t, enum SamError error) {
+	if (t->changes && error != SAM_ERR_OK)
 		t->error = error;
 	return t->error;
 }
@@ -1486,8 +1486,13 @@ static int extract(Vis *vis, Win *win, Command *cmd, const char *argv[], Selecti
 				}
 				if (simulate)
 					count++;
-				else
+				else {
 					ret &= sam_execute(vis, win, cmd->cmd, NULL, &r);
+					if (ret == false && win->file->transcript.error == SAM_ERR_CONFLICT) {
+						ret = true;
+						win->file->transcript.error = SAM_ERR_OK;
+					}
+				}
 			}
 		}
 	} else {
