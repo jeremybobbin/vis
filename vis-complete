@@ -1,84 +1,50 @@
-#!/bin/sh
-set -e
+#!/bin/sh -e
 
 usage() {
-	printf '%s\n' "usage: $(basename "$0") [--file|--word] pattern" \
-	              "       $(basename "$0") -h|--help"
+	printf '%s\n' "usage: ${0##*/} [--file|--word] pattern" \
+	              "       ${0##*/} -h|--help" 1>&2
 }
 
-basic_regex_quote() { printf "%s" "$1" | sed 's|[\\.*^$[]|\\&|g'; }
-glob_quote () { printf "%s" "$1" | sed 's|[\\?*[]]|\\&|g'; }
+fmt() {
+	{ vis-menu -b || :; } |
+		awk -v "s=$1" '{ printf "%s", substr($0, length(s)+1) }'
+}
 
-COMPLETE_WORD=0
-FIND_FILE_LIMIT=1000
+esc() {
+	echo "$1" | sed 's|[])}^$.*{([]|\\&|g'
+}
 
-while [ $# -gt 0 ]; do
-	case "$1" in
-	--file)
-		COMPLETE_WORD=0
-		shift
-		;;
-	--word)
-		COMPLETE_WORD=1
-		shift
-		;;
-	--)
-		shift
-		break
-		;;
-	-h|--help)
-		usage
-		exit 0
-		;;
-	-*)
-		usage
-		exit 1
-		;;
-	*)
-		break
-		;;
-	esac
-done
-
-if [ $# -ne 1 ]; then
+case "$1" in
+--file)
+	dir="$(dirname "$2")"
+	base="$(basename "$2")"
+	if [ -z "${2##*/}" ] && [ "$base" = "." ]; then
+		base="" # special case don't ask
+	fi
+	find "$dir" 2>/dev/null | awk -v "s=$2" -v "dir=$dir" -v "base=$base" '
+		BEGIN { i = length(dir)+2; n = length(base); }
+		!x[$0]++ && length($0) >= i+n && substr($0, i, n) == base { print s substr($0, i+n) }
+	' | fmt "$2"
+	;;
+-h|--help)
+	usage
+	;;
+--word)
+	tr -c '[:alnum:]_' '\n' | awk -v "s=$2" '
+		!/^$/ &&
+		!x[$0]++ &&
+		substr($0, 1, length(s)) == s &&
+		length($0) > length(s)
+	' | fmt "$2"
+	;;
+-*|'')
 	usage
 	exit 1
-fi
-
-PATTERN="$1"
-
-if [ $COMPLETE_WORD = 1 ]; then
-	tr -s '\t {}()[],<>%^&.\\' '\n' |
-		grep "^$(basic_regex_quote "$PATTERN")." |
-		sort -u
-else
-	# Expand to absolute path because of the -path option below.
-	case $PATTERN in
-		/*)
-			XPATTERN=$PATTERN
-			;;
-		'~'|'~/'*)
-			XPATTERN=$HOME$(echo $PATTERN | tail -c +2)
-			;;
-		*)
-			XPATTERN=$PWD/$PATTERN
-			;;
-	esac
-
-	# The first path condition rules out paths that start with "." unless
-	# they start with "..". That way, hidden paths should stay hidden, but
-	# non-normalised paths should still show up.
-	find $(dirname "$XPATTERN") \
-		-name '.*' -prune \
-		-o \( \
-			! -name '.*' \
-			-a -path "$(glob_quote "$XPATTERN")*" \
-			-print \
-		\) 2>/dev/null |
-		head -n $FIND_FILE_LIMIT |
-		sort |
-		sed "s|^$(dirname $XPATTERN)/||"
-fi |
-	vis-menu -b |
-	sed "s|^$(basename $PATTERN)$(echo $PATTERN | tail -c 2 | grep -F /)||" |
-	tr -d '\n'
+	;;
+*)
+	re="$(esc "$1")"
+	shift
+	grep "$re" "$@" |
+		fmt "$2"
+	;;
+esac
