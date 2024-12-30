@@ -1,84 +1,38 @@
-#!/bin/sh
-set -e
+#!/bin/sh -e
 
 usage() {
-	printf '%s\n' "usage: $(basename "$0") [--file|--word] pattern" \
-	              "       $(basename "$0") -h|--help"
+	printf '%s\n' "usage: ${0##*/} [--file|--word] pattern" \
+	              "       ${0##*/} -h|--help" 1>&2
 }
 
-basic_regex_quote() { printf "%s" "$1" | sed 's|[\\.*^$[]|\\&|g'; }
-glob_quote () { printf "%s" "$1" | sed 's|[\\?*[]]|\\&|g'; }
+fn() {
+	awk -v "s=$1" -v "n=$2" '!x[$0]++ && substr($0, n+1, length(s)) == s { print substr($0, 3) }' |
+		{ vis-menu -b || :; } |
+		awk -v "s=$1" '{ printf "%s", substr($0, length(s)+1) }'
+}
 
-COMPLETE_WORD=0
-FIND_FILE_LIMIT=1000
-
-while [ $# -gt 0 ]; do
-	case "$1" in
-	--file)
-		COMPLETE_WORD=0
-		shift
-		;;
-	--word)
-		COMPLETE_WORD=1
-		shift
-		;;
-	--)
-		shift
-		break
-		;;
-	-h|--help)
-		usage
-		exit 0
-		;;
-	-*)
-		usage
-		exit 1
-		;;
-	*)
-		break
-		;;
-	esac
-done
-
-if [ $# -ne 1 ]; then
+case "$1" in
+--file)
+	s="./$2"
+	find "${s%%/*}" | head -n 10000 | while read -r f; do
+		if [ -d "$f" ]; then
+			echo "$f/"
+		else
+			echo "$f"
+		fi
+	done | fn "${s#./}" 2
+	;;
+-h|--help)
+	usage
+	;;
+--word)
+	fn "$2"
+	;;
+-*|'')
 	usage
 	exit 1
-fi
-
-PATTERN="$1"
-
-if [ $COMPLETE_WORD = 1 ]; then
-	tr -s '\t {}()[],<>%^&.\\' '\n' |
-		grep "^$(basic_regex_quote "$PATTERN")." |
-		sort -u
-else
-	# Expand to absolute path because of the -path option below.
-	case $PATTERN in
-		/*)
-			XPATTERN=$PATTERN
-			;;
-		'~'|'~/'*)
-			XPATTERN=$HOME$(echo $PATTERN | tail -c +2)
-			;;
-		*)
-			XPATTERN=$PWD/$PATTERN
-			;;
-	esac
-
-	# The first path condition rules out paths that start with "." unless
-	# they start with "..". That way, hidden paths should stay hidden, but
-	# non-normalised paths should still show up.
-	find $(dirname "$XPATTERN") \
-		-name '.*' -prune \
-		-o \( \
-			! -name '.*' \
-			-a -path "$(glob_quote "$XPATTERN")*" \
-			-print \
-		\) 2>/dev/null |
-		head -n $FIND_FILE_LIMIT |
-		sort |
-		sed "s|^$(dirname $XPATTERN)/||"
-fi |
-	vis-menu -b |
-	sed "s|^$(basename $PATTERN)$(echo $PATTERN | tail -c 2 | grep -F /)||" |
-	tr -d '\n'
+	;;
+*)
+	fn "$1"
+	;;
+esac
