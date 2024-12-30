@@ -978,6 +978,41 @@ static int mappings(lua_State *L) {
 }
 
 /***
+ * Get all available `:`-commands.
+ *
+ * @function commands
+ * @treturn table of commands and their associated help texts
+ * @usage
+ * local commands = vis:commands()
+ * for command, help in pairs(commands) do
+ * 	-- do something
+ * end
+ * @see vis:command_register
+ */
+static bool commands_collect(const char *key, void *value, void *ctx) {
+	lua_State *L = ctx;
+	CommandDef *def = value;
+	if (key && def) {
+		const char *help = VIS_HELP_USE(def->help);
+		lua_pushstring(L, help ? help : "");
+		lua_setfield(L, -2, key);
+	}
+	return true;
+}
+
+static int commands(lua_State *L) {
+	Vis *vis = obj_ref_check(L, 1, "vis");
+	lua_newtable(L);
+	if (vis->cmds) {
+		map_iterate(vis->cmds, commands_collect, vis->lua);
+	}
+	if (vis->usercmds) {
+		map_iterate(vis->usercmds, commands_collect, vis->lua);
+	}
+	return 1;
+}
+
+/***
  * Execute a motion.
  *
  * @function motion
@@ -1508,6 +1543,7 @@ static const struct luaL_Reg vis_lua[] = {
 	{ "mark_names", mark_names },
 	{ "register_names", register_names },
 	{ "command", command },
+	{ "commands", commands },
 	{ "info", info },
 	{ "message", message },
 	{ "map", map },

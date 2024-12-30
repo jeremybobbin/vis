@@ -37,6 +37,37 @@ struct Mode {
 	bool visual;                        /* whether text selection is possible in this mode */
 };
 
+typedef struct CommandDef CommandDef;
+typedef struct Command Command;
+
+struct CommandDef {
+	const char *name;                    /* command name */
+	VIS_HELP_DECL(const char *help;)     /* short, one-line help text */
+	enum {
+		CMD_NONE          = 0,       /* standalone command without any arguments */
+		CMD_CMD           = 1 << 0,  /* does the command take a sub/target command? */
+		CMD_REGEX         = 1 << 1,  /* regex after command? */
+		CMD_REGEX_DEFAULT = 1 << 2,  /* is the regex optional i.e. can we use a default? */
+		CMD_COUNT         = 1 << 3,  /* does the command support a count as in s2/../? */
+		CMD_TEXT          = 1 << 4,  /* does the command need a text to insert? */
+		CMD_ADDRESS_NONE  = 1 << 5,  /* is it an error to specify an address for the command? */
+		CMD_ADDRESS_POS   = 1 << 6,  /* no address implies an empty range at current cursor position */
+		CMD_ADDRESS_LINE  = 1 << 7,  /* if no address is given, use the current line */
+		CMD_ADDRESS_AFTER = 1 << 8,  /* if no address is given, begin at the start of the next line */
+		CMD_ADDRESS_ALL   = 1 << 9,  /* if no address is given, apply to whole file (independent of #cursors) */
+		CMD_ADDRESS_ALL_1CURSOR = 1 << 10, /* if no address is given and only 1 cursor exists, apply to whole file */
+		CMD_SHELL         = 1 << 11, /* command needs a shell command as argument */
+		CMD_FORCE         = 1 << 12, /* can the command be forced with ! */
+		CMD_ARGV          = 1 << 13, /* whether shell like argument splitting is desired */
+		CMD_ONCE          = 1 << 14, /* command should only be executed once, not for every selection */
+		CMD_LOOP          = 1 << 15, /* a looping construct like `x`, `y` */
+		CMD_GROUP         = 1 << 16, /* a command group { ... } */
+		CMD_DESTRUCTIVE   = 1 << 17, /* command potentially destroys window */
+	} flags;
+	const char *defcmd;                  /* name of a default target command */
+	bool (*func)(Vis*, Win*, Command*, const char *argv[], Selection*, Filerange*); /* command implementation */
+};
+
 typedef struct {
 	Array values;
 	bool linewise; /* place register content on a new line when inserting? */
