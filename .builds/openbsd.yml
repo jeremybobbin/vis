@@ -5,6 +5,8 @@ packages:
   - lua53-lpeg
 sources:
   - https://github.com/martanne/vis
+environment:
+  TERM: xterm-256color
 tasks:
   - build: |
       cd vis

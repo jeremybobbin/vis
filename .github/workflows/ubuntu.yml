@@ -37,11 +37,15 @@ jobs:
           lua-lpeg
 
     - name: Build
+      env:
+        TERM: xterm-256color
       run: |
         ./configure ${{ matrix.config }}
         make
 
     - name: Test
+      env:
+        TERM: xterm-256color
       run: |
         make test
 

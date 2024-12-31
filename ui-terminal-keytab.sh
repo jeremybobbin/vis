@@ -1,8 +1,8 @@
-#!/bin/sh
+#!/bin/sh -e
 (
 	tmp=$(mktemp -d)
 	infocmp |
-		sed -n '/[a-zA-Z0-9]\+=/ { s/[ \t]//g; s/,/\n/; s/=/ /; P; D; }' |
+		sed -n '/[a-zA-Z0-9]\+=/ { s/[ \t]//g; s/,/\n/; s/=/ /; s/\\E/\\x1b/g; P; D; }' |
 		sort -k1b,1 > "$tmp/1"
 
 	echo "const char *ui_terminal_keytab[][3] = {"

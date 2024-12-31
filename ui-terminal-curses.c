@@ -256,15 +256,12 @@ static int ui_curses_colors(Ui *ui) {
 	return COLORS;
 }
 
-static bool ui_curses_init(UiTerm *tui, char *term, FILE *fp) {
-	for (int tries = 0; !newterm(term, fp, NULL) && tries < 1; tries++) {
-		snprintf(tui->info, sizeof(tui->info), "Warning: unknown term '%s'", term);
-		if (strstr(term, "-256color")) {
-			term = "xterm-256color";
-		} else {
-			term = "xterm";
-		}
+static bool ui_curses_init(UiTerm *tui, FILE *fp) {
+	if (!newterm(NULL, fp, NULL)) {
+		snprintf(tui->info, sizeof(tui->info), "failed to start curses interface");
+		return false;
 	}
+
 	start_color();
 	use_default_colors();
 	typeahead(-1); // so that ncurses doesn't poll stdin

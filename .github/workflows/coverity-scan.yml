@@ -38,6 +38,8 @@ jobs:
       run: ./configure
 
     - name: Build with cov-build
+      env:
+        TERM: xterm-256color
       run: |
         export PATH=$(pwd)/cov-analysis-linux64/bin:$PATH
         cov-build --dir cov-int make
