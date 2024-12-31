@@ -773,11 +773,6 @@ static bool ui_init(Ui *ui, Vis *vis) {
 
 	setlocale(LC_CTYPE, "");
 
-	char *term = getenv("TERM");
-	if (!term) {
-		term = "xterm";
-	}
-
 	if (!(tui->keymap = map_new()))
 		goto err;
 
@@ -863,12 +858,13 @@ static bool ui_init(Ui *ui, Vis *vis) {
 	if (write(ui->output_fd, RESUME, sizeof(RESUME)-1) != sizeof(RESUME)-1) {
 		goto err;
 	}
-	if (!ui_term_backend_init(tui, term, stderr))
+
+	if (!ui_term_backend_init(tui, stderr))
 		goto err;
 	ui_resize(ui);
 	return true;
 err:
-	ui_die_msg(ui, "Failed to start curses interface: %s\n", errno != 0 ? strerror(errno) : "");
+	ui_die_msg(ui, "UI initialization error: %s\n", tui->info[0] ? &tui->info[0] : strerror(errno));
 	return false;
 }
 
