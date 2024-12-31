@@ -209,13 +209,13 @@ static void ui_vt100_resume(UiTerm *tui) {
 	cursor_visible(vtui->fp, false);
 }
 
-static bool ui_vt100_init(UiTerm *tui, char* term, FILE *fp) {
+static bool ui_vt100_init(UiTerm *tui, FILE *fp) {
 	UiVt100 *vtui = (UiVt100*)tui;
 	if (fp == NULL) {
 		return false;
 	}
 	vtui->fp = fp;
-	vtui->term = term;
+	vtui->term = getenv("TERM");
 	if (tcgetattr(fileno(fp), &vtui->termios)) {
 		// return false;
 		// ^ makes the lua tests fail
