@@ -119,7 +119,7 @@ bool vis_option_unregister(Vis *vis, const char *name) {
 }
 
 static bool cmd_user(Vis *vis, Win *win, Command *cmd, const char *argv[], Selection *sel, Filerange *range) {
-	CmdUser *user = map_get(vis->usercmds, argv[0]);
+	CmdUser *user = map_closest(vis->usercmds, argv[0]);
 	return user && user->func(vis, win, user->data, cmd->flags == '!', argv, sel, range);
 }
 
