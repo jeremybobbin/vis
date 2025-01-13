@@ -31,8 +31,6 @@ static const char *nop(Vis*, const char *keys, const Arg *arg);
 /* record/replay macro indicated by keys */
 static const char *macro_record(Vis*, const char *keys, const Arg *arg);
 static const char *macro_replay(Vis*, const char *keys, const Arg *arg);
-/* temporarily suspend the editor and return to the shell, type 'fg' to get back */
-static const char *suspend(Vis*, const char *keys, const Arg *arg);
 /* reset count if set, otherwise remove all but the primary selection */
 static const char *normalmode_escape(Vis*, const char *keys, const Arg *arg);
 /* reset count if set, otherwise switch to normal mode */
@@ -171,11 +169,6 @@ static const char *macro_replay(Vis *vis, const char *keys, const Arg *arg) {
 	enum VisRegister reg = vis_register_from(vis, keys[0]);
 	vis_macro_replay(vis, reg);
 	return keys+1;
-}
-
-static const char *suspend(Vis *vis, const char *keys, const Arg *arg) {
-	vis_suspend(vis);
-	return keys;
 }
 
 static const char *repeat(Vis *vis, const char *keys, const Arg *arg) {
@@ -1225,6 +1218,7 @@ int main(int argc, char *argv[]) {
 	if (sigaction(SIGBUS, &sa, NULL) == -1 ||
 	    sigaction(SIGINT, &sa, NULL) == -1 ||
 	    sigaction(SIGCONT, &sa, NULL) == -1 ||
+	    sigaction(SIGTSTP, &sa, NULL) == -1 ||
 	    sigaction(SIGWINCH, &sa, NULL) == -1 ||
 	    sigaction(SIGTERM, &sa, NULL) == -1 ||
 	    sigaction(SIGHUP, &sa, NULL) == -1) {
@@ -1241,6 +1235,7 @@ int main(int argc, char *argv[]) {
 	sigaddset(&blockset, SIGCONT);
 	sigaddset(&blockset, SIGWINCH);
 	sigaddset(&blockset, SIGTERM);
+	sigaddset(&blockset, SIGTSTP);
 	sigaddset(&blockset, SIGHUP);
 	if (sigprocmask(SIG_BLOCK, &blockset, NULL) == -1)
 		vis_die(vis, "Failed to block signals\n");

@@ -7,7 +7,6 @@ static const char *keymaps[] = {
 };
 
 static const KeyBinding bindings_basic[] = {
-	{ "<C-z>",              ALIAS("<vis-suspend>")                                         },
 	{ "<Down>",             ALIAS("<vis-motion-line-down>")                                },
 	{ "<End>",              ALIAS("<vis-motion-line-end>")                                 },
 	{ "<Home>",             ALIAS("<vis-motion-line-begin>")                               },
@@ -354,11 +353,6 @@ static const KeyBinding **default_bindings[] = {
 };
 
 static const KeyAction vis_action[] = {
-	{
-		"vis-suspend",
-		VIS_HELP("Suspend the editor")
-		suspend,
-	},
 	{
 		"vis-motion-char-prev",
 		VIS_HELP("Move cursor left, to the previous character")

@@ -70,6 +70,9 @@
 #define CELL_ATTR_ITALIC    (1 << 4)
 #define CELL_ATTR_DIM       (1 << 5)
 
+#define RESUME  ui_terminal_control[1][1]
+#define SUSPEND ui_terminal_control[0][1]
+
 typedef struct {
 	UiTerm uiterm;
 	String buf;
@@ -194,9 +197,10 @@ static int ui_vt100_colors(Ui *ui) {
 
 static void ui_vt100_suspend(UiTerm *tui) {
 	UiVt100 *vtui = (UiVt100*)tui;
+	tcsetattr(fileno(vtui->fp), TCSANOW, &vtui->termios);
+	output(vtui->fp, SUSPEND, sizeof(SUSPEND)-1);
 	cursor_visible(vtui->fp, true);
 	screen_alternate(vtui->fp, false);
-	tcsetattr(fileno(vtui->fp), TCSANOW, &vtui->termios);
 }
 
 static void ui_vt100_resume(UiTerm *tui) {
@@ -205,6 +209,7 @@ static void ui_vt100_resume(UiTerm *tui) {
 	display.c_iflag &= ~(IXON|INLCR|ICRNL);
 	display.c_lflag &= ~(ICANON|ECHO);
 	tcsetattr(fileno(vtui->fp), TCSANOW, &display);
+	output(vtui->fp, RESUME, sizeof(RESUME)-1);
 	screen_alternate(vtui->fp, true);
 	cursor_visible(vtui->fp, false);
 }

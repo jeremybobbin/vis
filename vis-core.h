@@ -237,6 +237,7 @@ struct Vis {
 	volatile sig_atomic_t interrupted;   /* abort command (SIGINT occurred) */
 	volatile sig_atomic_t sigbus;        /* one of the memory mapped regions became unavailable (SIGBUS) */
 	volatile sig_atomic_t need_resize;   /* need to resize UI (SIGWINCH occurred) */
+	volatile sig_atomic_t suspend;       /* need to suspend UI (SIGTSTP occurred) */
 	volatile sig_atomic_t resume;        /* need to resume UI (SIGCONT occurred) */
 	volatile sig_atomic_t terminate;     /* need to terminate we were being killed by SIGTERM */
 	sigjmp_buf sigbus_jmpbuf;            /* used to jump back to a known good state in the mainloop after (SIGBUS) */

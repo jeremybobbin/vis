@@ -32,8 +32,6 @@
 
 #define MAX_WIDTH 1024
 #define MAX_HEIGHT 1024
-#define RESUME  (ui_terminal_control[1][1])
-#define SUSPEND (ui_terminal_control[0][1])
 
 typedef struct UiTermWin UiTermWin;
 
@@ -588,17 +586,10 @@ static int ui_open(Ui *ui) {
 static void ui_suspend(Ui *ui) {
 	UiTerm *tui = (UiTerm*)ui;
 	ui_term_backend_suspend(tui);
-	if (write(STDERR_FILENO, SUSPEND, sizeof(SUSPEND)-1) != sizeof(SUSPEND)-1) {
-		snprintf(tui->info, sizeof(tui->info), "Failed to suspend display: '%s'", errno ? strerror(errno) : "");
-	}
-	kill(0, SIGTSTP);
 }
 
 static void ui_resume(Ui *ui) {
 	UiTerm *tui = (UiTerm*)ui;
-	if (write(STDERR_FILENO, RESUME, sizeof(RESUME)-1) != sizeof(RESUME)-1) {
-		snprintf(tui->info, sizeof(tui->info), "Failed to resume display: '%s'", errno ? strerror(errno) : "");
-	}
 	ui_term_backend_resume(tui);
 }
 
@@ -712,17 +703,11 @@ static int ui_encode_key(Ui *ui, char *buf, size_t len, const char *key) {
 static void ui_terminal_save(Ui *ui) {
 	UiTerm *tui = (UiTerm*)ui;
 	ui_term_backend_save(tui);
-	if (write(STDERR_FILENO, SUSPEND, sizeof(SUSPEND)-1) != sizeof(SUSPEND)-1) {
-		snprintf(tui->info, sizeof(tui->info), "Failed to suspend display: '%s'", errno ? strerror(errno) : "");
-	}
 }
 
 static void ui_terminal_restore(Ui *ui) {
 	UiTerm *tui = (UiTerm*)ui;
 	ui_term_backend_restore(tui);
-	if (write(STDERR_FILENO, RESUME, sizeof(RESUME)-1) != sizeof(RESUME)-1) {
-		snprintf(tui->info, sizeof(tui->info), "Failed to resume display: '%s'", errno ? strerror(errno) : "");
-	}
 }
 
 static bool map_put_recursive(Map *m, const char *k, const char *v) {
@@ -841,11 +826,6 @@ static bool ui_init(Ui *ui, Vis *vis) {
 	}
 
 	errno = 0;
-
-
-	if (write(STDERR_FILENO, RESUME, sizeof(RESUME)-1) != sizeof(RESUME)-1) {
-		goto err;
-	}
 
 	if (!ui_term_backend_init(tui, stderr))
 		goto err;

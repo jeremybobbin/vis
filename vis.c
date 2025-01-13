@@ -568,19 +568,9 @@ void vis_draw(Vis *vis) {
 
 void vis_redraw(Vis *vis) {
 	vis->ui->redraw(vis->ui);
-	vis_update(vis);
-}
-
-void vis_update(Vis *vis) {
-	vis->ui->draw(vis->ui);
-}
-
-void vis_suspend(Vis *vis) {
-	vis->ui->suspend(vis->ui);
 }
 
 void vis_resume(Vis *vis) {
-	vis->ui->resume(vis->ui);
 }
 
 bool vis_window_new(Vis *vis, const char *filename) {
@@ -712,6 +702,7 @@ Vis *vis_new(Ui *ui, VisEvent *event) {
 		if (event->mode_replace_input)
 			vis_modes[VIS_MODE_REPLACE].input = event->mode_replace_input;
 	}
+
 	return vis;
 err:
 	vis_free(vis);
@@ -1275,6 +1266,9 @@ bool vis_signal_handler(Vis *vis, int signum, const siginfo_t *siginfo, const vo
 	case SIGINT:
 		vis->interrupted = true;
 		return true;
+	case SIGTSTP:
+		vis->suspend = true;
+		return true;
 	case SIGCONT:
 		vis->resume = true;
 		/* fall through */
@@ -1294,6 +1288,7 @@ int vis_run(Vis *vis) {
 	size_t len = 0;
 	char buf[BUFSIZ];
 	char key[VIS_KEY_LENGTH_MAX];
+	struct sigaction sa[2];
 
 	if (vis->exit_status != -1)
 		return vis->exit_status;
@@ -1341,9 +1336,13 @@ int vis_run(Vis *vis) {
 			continue;
 		}
 
+
 		if (vis->resume) {
-			vis_resume(vis);
+			vis->ui->resume(vis->ui);
 			vis->resume = false;
+			if (sigaction(SIGTSTP, &sa[1], NULL) == -1) {
+				vis_die(vis, "Error restoring signal: %s\n", strerror(errno));
+			}
 		}
 
 		if (vis->need_resize) {
@@ -1351,7 +1350,21 @@ int vis_run(Vis *vis) {
 			vis->need_resize = false;
 		}
 
-		vis_update(vis);
+		if (vis->suspend) {
+			vis->suspend = false;
+			if (vis->ui->suspend) {
+				vis->ui->suspend(vis->ui);
+			}
+			memset(&sa[0], 0, sizeof(sa));
+			sigfillset(&sa[0].sa_mask);
+			sa[0].sa_handler = SIG_DFL;
+			if (sigaction(SIGTSTP, &sa[0], &sa[1]) == -1) {
+				vis_die(vis, "Error setting signal: %s\n", strerror(errno));
+			}
+			kill(0, SIGTSTP);
+		} else {
+			vis->ui->draw(vis->ui);
+		}
 		int r = pselect(1, &fds, NULL, NULL, NULL, &emptyset);
 		if (r == -1 && errno == EINTR)
 			continue;
