@@ -1225,6 +1225,7 @@ int main(int argc, char *argv[]) {
 	if (sigaction(SIGBUS, &sa, NULL) == -1 ||
 	    sigaction(SIGINT, &sa, NULL) == -1 ||
 	    sigaction(SIGCONT, &sa, NULL) == -1 ||
+	    sigaction(SIGTSTP, &sa, NULL) == -1 ||
 	    sigaction(SIGWINCH, &sa, NULL) == -1 ||
 	    sigaction(SIGTERM, &sa, NULL) == -1 ||
 	    sigaction(SIGHUP, &sa, NULL) == -1) {
@@ -1241,6 +1242,7 @@ int main(int argc, char *argv[]) {
 	sigaddset(&blockset, SIGCONT);
 	sigaddset(&blockset, SIGWINCH);
 	sigaddset(&blockset, SIGTERM);
+	sigaddset(&blockset, SIGTSTP);
 	sigaddset(&blockset, SIGHUP);
 	if (sigprocmask(SIG_BLOCK, &blockset, NULL) == -1)
 		vis_die(vis, "Failed to block signals\n");

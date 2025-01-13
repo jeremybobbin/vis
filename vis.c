@@ -650,8 +650,6 @@ void vis_window_close(Win *win) {
 		vis->windows = win->next;
 	if (vis->win == win)
 		vis->win = win->next ? win->next : win->prev;
-	if (win == vis->message_window)
-		vis->message_window = NULL;
 	window_free(win);
 	if (vis->win)
 		vis->ui->window_focus(vis->win->ui);
@@ -686,8 +684,6 @@ Vis *vis_new(Ui *ui, VisEvent *event) {
 		goto err;
 	if (!(vis->search_file = file_new_internal(vis, NULL)))
 		goto err;
-	if (!(vis->error_file = file_new_internal(vis, NULL)))
-		goto err;
 	if (!(vis->actions = map_new()))
 		goto err;
 	if (!sam_init(vis))
@@ -708,6 +704,7 @@ Vis *vis_new(Ui *ui, VisEvent *event) {
 		if (event->mode_replace_input)
 			vis_modes[VIS_MODE_REPLACE].input = event->mode_replace_input;
 	}
+
 	return vis;
 err:
 	vis_free(vis);
@@ -723,7 +720,6 @@ void vis_free(Vis *vis) {
 		vis_window_close(vis->windows);
 	file_free(vis, vis->command_file);
 	file_free(vis, vis->search_file);
-	file_free(vis, vis->error_file);
 	for (int i = 0; i < LENGTH(vis->registers); i++)
 		register_release(&vis->registers[i]);
 	vis->ui->free(vis->ui);
@@ -1271,6 +1267,9 @@ bool vis_signal_handler(Vis *vis, int signum, const siginfo_t *siginfo, const vo
 	case SIGINT:
 		vis->interrupted = true;
 		return true;
+	case SIGTSTP:
+		vis->suspend = true;
+		return true;
 	case SIGCONT:
 		vis->resume = true;
 		/* fall through */
@@ -1347,12 +1346,17 @@ int vis_run(Vis *vis) {
 			vis->need_resize = false;
 		}
 
-		vis_update(vis);
-		int r = pselect(1, &fds, NULL, NULL, NULL, &emptyset);
-		if (r == -1 && errno == EINTR)
-			continue;
+		if (vis->suspend) {
+			vis->suspend = false;
+			vis_suspend(vis);
+		}
 
-		if (r < 0) {
+		vis_update(vis);
+		if (pselect(1, &fds, NULL, NULL, NULL, &emptyset) >= 0) {
+			// success
+		} else if (errno == EINTR) {
+			continue;
+		} else {
 			/* TODO save all pending changes to a ~suffixed file */
 			vis_die(vis, "Error in mainloop: %s\n", strerror(errno));
 		}

@@ -275,14 +275,20 @@ static UiTerm *ui_curses_new(void) {
 	return calloc(1, sizeof(UiTerm));
 }
 
-static void ui_curses_resume(UiTerm *term) { }
+static void ui_curses_resume(UiTerm *term) {
+	reset_prog_mode();
+	wclear(stdscr);
+	curs_set(0);
+}
 
 static void ui_curses_suspend(UiTerm *term) {
+	curs_set(1);
 	if (change_colors == 1)
 		undo_palette();
+	def_prog_mode();
+	endwin();
 }
 
 static void ui_curses_free(UiTerm *term) {
 	ui_curses_suspend(term);
-	endwin();
 }

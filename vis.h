@@ -243,7 +243,7 @@ void vis_info_show(Vis*, const char *msg, ...) __attribute__((format(printf, 2, 
 void vis_info_hide(Vis*);
 
 /** Display arbitrary long message in a dedicated window. */
-void vis_message_show(Vis*, const char *msg);
+void vis_message_show(Vis*, const char *msg, ...) __attribute__((format(printf, 2, 3)));
 /**
  * @}
  * @defgroup vis_changes

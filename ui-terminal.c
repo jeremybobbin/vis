@@ -32,8 +32,6 @@
 
 #define MAX_WIDTH 1024
 #define MAX_HEIGHT 1024
-#define RESUME  (ui_terminal_control[1][1])
-#define SUSPEND (ui_terminal_control[0][1])
 
 typedef struct UiTermWin UiTermWin;
 
@@ -52,6 +50,8 @@ typedef struct {
 	Cell *cells;              /* 2D grid of cells, at least as large as current terminal size */
 	Map *keymap;              /* ansi-escape-sequence -> vis-keys */
 	bool use_keymap;
+	struct sigaction sa[2];
+	bool suspended;
 } UiTerm;
 
 struct UiTermWin {
@@ -358,6 +358,9 @@ static void ui_arrange(Ui *ui, enum UiLayout layout) {
 static void ui_draw(Ui *ui) {
 	debug("ui-draw\n");
 	UiTerm *tui = (UiTerm*)ui;
+	if (tui->suspended) {
+		return;
+	}
 	ui_arrange(ui, tui->layout);
 	for (UiTermWin *win = tui->windows; win; win = win->next)
 		ui_window_draw((UiWin*)win);
@@ -587,25 +590,38 @@ static int ui_open(Ui *ui) {
 
 static void ui_suspend(Ui *ui) {
 	UiTerm *tui = (UiTerm*)ui;
-	ui_term_backend_suspend(tui);
-	if (write(STDERR_FILENO, SUSPEND, sizeof(SUSPEND)-1) != sizeof(SUSPEND)-1) {
-		snprintf(tui->info, sizeof(tui->info), "Failed to suspend display: '%s'", errno ? strerror(errno) : "");
+	if (tui->suspended) {
+		return;
 	}
+	memset(&tui->sa[0], 0, sizeof(tui->sa));
+	tui->sa[0].sa_handler = SIG_DFL;
+	if (sigaction(SIGTSTP, &tui->sa[0], &tui->sa[1]) == -1) {
+		ui_die_msg(ui, "Error restoring original SIGSTP handler: %s\n", strerror(errno));
+	}
+	ui_term_backend_suspend(tui);
+	tui->suspended = true;
 	kill(0, SIGTSTP);
 }
 
 static void ui_resume(Ui *ui) {
 	UiTerm *tui = (UiTerm*)ui;
-	if (write(STDERR_FILENO, RESUME, sizeof(RESUME)-1) != sizeof(RESUME)-1) {
-		snprintf(tui->info, sizeof(tui->info), "Failed to resume display: '%s'", errno ? strerror(errno) : "");
-	}
+	tui->suspended = false;
 	ui_term_backend_resume(tui);
+	if (sigaction(SIGTSTP, &tui->sa[1], NULL) == -1) {
+		ui_die_msg(ui, "Error resetting custom SIGTSTP handler: %s\n", strerror(errno));
+	}
 }
 
 static int ui_decode_key(Ui *ui, char *key, char *buf, size_t len) {
 	// turns input from stdin into <C-V>gUi<F4> ...
 	UiTerm *tui = (UiTerm*)ui;
 	size_t i, n;
+	if (tui->suspended) {
+		key[0] = '\0';
+		ui_resume(ui);
+		return len;
+	}
+
 	if (len == 0) {
 		key[0] = '\0';
 		return 0;
@@ -712,17 +728,11 @@ static int ui_encode_key(Ui *ui, char *buf, size_t len, const char *key) {
 static void ui_terminal_save(Ui *ui) {
 	UiTerm *tui = (UiTerm*)ui;
 	ui_term_backend_save(tui);
-	if (write(STDERR_FILENO, SUSPEND, sizeof(SUSPEND)-1) != sizeof(SUSPEND)-1) {
-		snprintf(tui->info, sizeof(tui->info), "Failed to suspend display: '%s'", errno ? strerror(errno) : "");
-	}
 }
 
 static void ui_terminal_restore(Ui *ui) {
 	UiTerm *tui = (UiTerm*)ui;
 	ui_term_backend_restore(tui);
-	if (write(STDERR_FILENO, RESUME, sizeof(RESUME)-1) != sizeof(RESUME)-1) {
-		snprintf(tui->info, sizeof(tui->info), "Failed to resume display: '%s'", errno ? strerror(errno) : "");
-	}
 }
 
 static bool map_put_recursive(Map *m, const char *k, const char *v) {
@@ -841,11 +851,6 @@ static bool ui_init(Ui *ui, Vis *vis) {
 	}
 
 	errno = 0;
-
-
-	if (write(STDERR_FILENO, RESUME, sizeof(RESUME)-1) != sizeof(RESUME)-1) {
-		goto err;
-	}
 
 	if (!ui_term_backend_init(tui, stderr))
 		goto err;

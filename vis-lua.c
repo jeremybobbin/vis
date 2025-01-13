@@ -230,7 +230,7 @@ static int panic_handler(lua_State *L) {
 		const char *msg = NULL;
 		if (lua_type(L, -1) == LUA_TSTRING)
 			msg = lua_tostring(L, -1);
-		vis_info_show(vis, "Fatal Lua error: %s", msg ? msg : "unknown reason");
+		vis_message_show(vis, "Fatal Lua error: %s\n", msg ? msg : "unknown reason");
 		lua_close(L);
 		if (vis->running)
 			siglongjmp(vis->sigbus_jmpbuf, 1);
@@ -248,7 +248,7 @@ static int error_handler(lua_State *L) {
 	if (msg)
 		luaL_traceback(L, L, msg, 1);
 	msg = lua_tolstring(L, 1, &len);
-	vis_message_show(vis, msg);
+	vis_message_show(vis, "%s\n", msg);
 	vis->errorhandler = false;
 	return 1;
 }
@@ -784,7 +784,7 @@ static int info(lua_State *L) {
 static int message(lua_State *L) {
 	Vis *vis = obj_ref_check(L, 1, "vis");
 	const char *msg = luaL_checkstring(L, 2);
-	vis_message_show(vis, msg);
+	vis_message_show(vis, "%s\n", msg);
 	return 0;
 }
 
