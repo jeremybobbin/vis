@@ -43,6 +43,7 @@ EOF
 }
 
 # Beginning of actual script
+CFLAGS="-Wextra -Wpedantic -Wno-missing-field-initializers -Wno-unused-parameter"
 CFLAGS_AUTO=
 LDFLAGS_AUTO=
 SRCDIR=
@@ -124,15 +125,9 @@ fi
 #
 # Get a temp filename we can use
 #
-i=0
-until tmp="./conf$$-$PPID-$i"; ( : > "$tmp.c" && : > "$tmp.o" ) 2>/dev/null; do
-	i=$((i + 1))
-	if [ "$i" -ge 50 ]; then
-		fail "$0: cannot create temporary file $tmp.c"
-	fi
-done
+tmp="$(mktemp)"
 
-trap 'rm -f $tmp.c $tmp.o' EXIT QUIT TERM HUP
+trap 'rm -f $tmp.c $tmp.o $tmp.mk' EXIT QUIT TERM HUP
 trap 'printf "\n%s: interrupted\n" "$0" >&2; exit 1' INT
 
 #
@@ -162,7 +157,8 @@ else
 	exit 1
 fi
 
-CFLAGS_STD="-std=c99 -D_POSIX_C_SOURCE=200809L -U_XOPEN_SOURCE -D_XOPEN_SOURCE=700 -DNDEBUG"
+# POSIX(200809L): text-io.c - openat renameat unlinkat fstatat; X - char width
+CFLAGS_STD="-std=c99 -D_XOPEN_SOURCE=700 -D_POSIX_C_SOURCE=200809L"
 LDFLAGS_STD="-lc"
 
 case "$(uname)" in
@@ -220,7 +216,7 @@ if ! tryldflag $LDFLAGS_TRY $LDFLAGS 1>&2; then
 	fail "$0: user-provided LDFLAGS fail"
 fi
 
-for f in -Wall -pipe -O2 -ffunction-sections -fdata-sections; do
+for f in -Wall -O2 -ffunction-sections -fdata-sections; do
 	if tryflag $CFLAGS_TRY "$f" 1>&2 2>/dev/null; then
 		CFLAGS="$f $CFLAGS"
 	fi
@@ -253,341 +249,42 @@ else
 	printf "no\n" >&2
 fi
 
-if test "$help" = "yes"; then
-	CONFIG_HELP=1
-else
-	CONFIG_HELP=0
-fi
-
-CONFIG_CURSES=0
-
-if test "$curses" != "no"; then
-
-	printf "checking for libcurses...\n" >&2
-
-	cat >"$tmp.c" <<EOF
-#include <curses.h>
-
-int main(int argc, char *argv[]) {
-	initscr();
-	endwin();
-	return 0;
-}
-EOF
-
-	for libcurses in ncursesw ncurses curses; do
-		printf " checking for %s... " "$libcurses" >&2
+resolve() {
+	shift
+	for lib in "$@"; do
+		printf " checking for %s... " "$lib" >&2
 
 		if test "$have_pkgconfig" = "yes"; then
 			if
-				CFLAGS_CURSES="$(pkg-config --cflags "$libcurses" 2>/dev/null)" &&
-				LDFLAGS_CURSES="$(pkg-config --libs "$libcurses" 2>/dev/null)" &&
-				"$CC" $CFLAGS $CFLAGS_CURSES "$tmp.c" $LDFLAGS $LDFLAGS_CURSES -o "$tmp.o" #>/dev/null 2>&1
+				cflags="$(pkg-config --cflags "$lib" 2>/dev/null)" &&
+				ldflags="$(pkg-config --libs "$lib" 2>/dev/null)" &&
+				"$CC" $CFLAGS $cflags "$tmp.c" $LDFLAGS $ldflags -o "$tmp.o" >/dev/null 2>&1 &&
+				"$tmp.o" >/dev/null 2>&1
 			then
-				CONFIG_CURSES=1
+				cflags="${cflags%% }"
+				ldflags="${ldflags%% }"
 				printf "yes\n" >&2
-				break
+				return
 			fi
 		fi
 
-		CFLAGS_CURSES=""
-		LDFLAGS_CURSES="-l$libcurses"
+		cflags=""
+		ldflags="-l$lib"
 
-		if "$CC" $CFLAGS $CFLAGS_CURSES "$tmp.c" \
-			$LDFLAGS $LDFLAGS_CURSES -o "$tmp.o" >/dev/null 2>&1; then
-			CONFIG_CURSES=1
-			printf "yes\n" >&2
-			break
-		else
-			CFLAGS_CURSES=""
-			LDFLAGS_CURSES=""
-			printf "no\n" >&2
-		fi
-	done
-
-	if test "$curses" = "yes" -a "$CONFIG_CURSES" -ne 1; then
-		fail "$0: cannot find libcurses"
-	fi
-fi
-
-CONFIG_TRE=0
-REGEX_SRC=text-regex.c
-
-if test "$tre" != "no"; then
-
-	printf "checking for libtre... " >&2
-
-	cat >"$tmp.c" <<EOF
-#include <stddef.h>
-#include <tre/tre.h>
-
-int main() {
-	regex_t preg;
-	tre_str_source *source = NULL;
-	regmatch_t pmatch[1];
-	tre_regcomp(&preg, "\0", REG_EXTENDED);
-	tre_reguexec(&preg, source, 1, pmatch, 0);
-	tre_regfree(&preg);
-	return 0;
-}
-EOF
-
-	if test "$have_pkgconfig" = "yes"; then
-		CFLAGS_TRE=$(pkg-config --cflags tre 2>/dev/null)
-		LDFLAGS_TRE=$(pkg-config --libs tre 2>/dev/null)
-	fi
-
-	if test -z "$LDFLAGS_TRE"; then
-		CFLAGS_TRE=""
-		LDFLAGS_TRE="-ltre"
-	fi
-
-	if "$CC" $CFLAGS $CFLAGS_TRE "$tmp.c" \
-		$LDFLAGS $LDFLAGS_TRE -o "$tmp.o" >/dev/null 2>&1; then
-		CONFIG_TRE=1
-		REGEX_SRC=text-regex-tre.c
-		printf "%s\n" "yes" >&2
-	else
-		printf "%s\n" "no" >&2
-		CFLAGS_TRE=""
-		LDFLAGS_TRE=""
-		if test "$tre" = "yes"; then
-			fail "$0: cannot find libtre"
-		fi
-	fi
-fi
-
-CONFIG_LUA=0
-
-# enabling builtin lpeg requires lua support
-if test "$lpeg" = "yes" -a "$lua" = "no"; then
-	fail "$0: need lua support for built-in lpeg"
-fi
-if test "$lpeg" = "yes"; then
-	lua=yes
-fi
-
-if test "$lua" != "no"; then
-
-	printf "checking for liblua >= 5.1 ...\n" >&2
-
-	cat >"$tmp.c" <<EOF
-#include <lua.h>
-#include <lualib.h>
-#include <lauxlib.h>
-
-#if LUA_VERSION_NUM < 501
-#error "Need at least Lua 5.1"
-#endif
-
-int main(int argc, char *argv[]) {
-	lua_State *L = luaL_newstate();
-	luaL_openlibs(L);
-	lua_close(L);
-	return 0;
-}
-EOF
-
-	for liblua in lua lua5.4 lua5.3 lua5.2 lua-5.4 lua-5.3 lua-5.2 lua54 lua53 lua52 luajit; do
-		printf " checking for %s... " "$liblua" >&2
-
-		if test "$have_pkgconfig" = "yes"; then
-			if
-				CFLAGS_LUA="$(pkg-config --cflags "$liblua" 2>/dev/null)" &&
-				LDFLAGS_LUA="$(pkg-config --libs "$liblua" 2>/dev/null)" && \
-				$CC $CFLAGS $CFLAGS_LUA "$tmp.c" \
-					$LDFLAGS $LDFLAGS_LUA -o "$tmp.o" >/dev/null 2>&1
-			then
-				CONFIG_LUA=1
-				printf "yes\n" >&2
-				break
-			fi
-		fi
-
-		CFLAGS_LUA=""
-		LDFLAGS_LUA="-l$liblua -lm -ldl"
-
-		if "$CC" $CFLAGS $CFLAGS_LUA "$tmp.c" \
-			$LDFLAGS $LDFLAGS_LUA -o "$tmp.o" >/dev/null 2>&1; then
-			CONFIG_LUA=1
-			printf "yes\n" >&2
-			break
-		else
-			printf "no\n" >&2
-			CFLAGS_LUA=""
-			LDFLAGS_LUA=""
-		fi
-	done
-
-	if test "$lua" = "yes" -a "$CONFIG_LUA" -ne 1; then
-		fail "$0: cannot find liblua"
-	fi
-
-	if test "$CONFIG_LUA" -eq 1; then
-		CFLAGS_LUA="$CFLAGS_LUA -DLUA_COMPAT_5_1 -DLUA_COMPAT_5_2 -DLUA_COMPAT_5_3 -DLUA_COMPAT_ALL"
-	fi
-fi
-
-CONFIG_LPEG=0
-
-if test $CONFIG_LUA -eq 1 -a "$lpeg" != "no"; then
-
-	printf "checking for Lua statically linked liblpeg...\n" >&2
-
-	cat >"$tmp.c" <<EOF
-#include <lua.h>
-#include <lualib.h>
-#include <lauxlib.h>
-
-int main(int argc, char *argv[]) {
-	lua_State *L = luaL_newstate();
-	luaL_openlibs(L);
-	extern int luaopen_lpeg(lua_State *L);
-	lua_getglobal(L, "package");
-	lua_getfield(L, -1, "preload");
-	lua_pushcfunction(L, luaopen_lpeg);
-	lua_setfield(L, -2, "lpeg");
-	lua_pop(L, 2);
-	lua_close(L);
-	return 0;
-}
-EOF
-
-	for liblpeg in lpeg lua5.4-lpeg lua5.3-lpeg lua5.2-lpeg; do
-		printf " checking for static %s... " "$liblpeg" >&2
-
-		if test "$have_pkgconfig" = "yes"; then
-			if
-				CFLAGS_LPEG=$(pkg-config --cflags $liblpeg 2>/dev/null) &&
-				LDFLAGS_LPEG=$(pkg-config --libs $liblpeg 2>/dev/null) &&
-					"$CC" $CFLAGS $CFLAGS_LUA $CFLAGS_LPEG "$tmp.c" \
-					$LDFLAGS $LDFLAGS_LUA $LDFLAGS_LPEG -o "$tmp.o" >/dev/null 2>&1
-			then
-				CONFIG_LPEG=1
-				printf "yes\n" >&2
-				break
-			fi
-		fi
-
-		CFLAGS_LPEG=""
-		LDFLAGS_LPEG="-l$liblpeg"
-
-		if "$CC" $CFLAGS $CFLAGS_LUA $CFLAGS_LPEG "$tmp.c" \
-			$LDFLAGS $LDFLAGS_LUA $LDFLAGS_LPEG -o "$tmp.o" >/dev/null 2>&1; then
-			CONFIG_LPEG=1
-			printf "yes\n" >&2
-			break
-		else
-			printf "no\n" >&2
-			CFLAGS_LPEG=""
-			LDFLAGS_LPEG=""
-		fi
-	done
-
-	if test "$lpeg" = "yes" -a $CONFIG_LPEG -ne 1; then
-		fail "$0: cannot find liblpeg"
-	fi
-fi
-
-CONFIG_ACL=0
-
-if test "$acl" != "no"; then
-	printf "checking for libacl...\n" >&2
-
-	cat >"$tmp.c" <<EOF
-#include <sys/types.h>
-#include <sys/acl.h>
-
-int main(int argc, char *argv[]) {
-	acl_t acl = acl_get_fd(0);
-	return 0;
-}
-EOF
-
-	for libacl in acl libacl; do
-		printf " checking for %s... " "$libacl" >&2
 		if
-			test "$have_pkgconfig" = "yes" &&
-			CFLAGS_ACL=$(pkg-config --cflags "$libacl" 2>/dev/null) &&
-			LDFLAGS_ACL=$(pkg-config --libs "$libacl" 2>/dev/null)
+			"$CC" $CFLAGS $RCFLAGS $cflags "$tmp.c" $LDFLAGS $RLDFLAGS $ldflags -o "$tmp.o" >/dev/null 2>&1 &&
+			"$tmp.o" >/dev/null 2>&1
 		then
-			:
+			printf "yes\n" >&2
+			return
 		else
-			CFLAGS_ACL=""
-			LDFLAGS_ACL="-lacl"
-		fi
-		if "$CC" $CFLAGS $CFLAGS_ACL "$tmp.c" \
-			$LDFLAGS $LDFLAGS_ACL -o "$tmp.o" >/dev/null 2>&1; then
-			CONFIG_ACL=1
-			printf "%s\n" "yes" >&2
-			break
-		else
-			printf "%s\n" "no" >&2
-			CFLAGS_ACL=""
-			LDFLAGS_ACL=""
+			cflags=""
+			ldflags=""
+			printf "no\n" >&2
 		fi
 	done
-	if test "$acl" = "yes" -a "$CONFIG_ACL" -ne 1; then
-		fail "$0: cannot find libacl"
-	fi
-fi
-
-CONFIG_SELINUX=0
-
-if test "$selinux" != "no"; then
-	printf "checking for libselinux... " >&2
-
-	cat >"$tmp.c" <<EOF
-#include <selinux/selinux.h>
-
-int main(int argc, char *argv[]) {
-	return is_selinux_enabled();
+	return 1
 }
-EOF
-
-	if
-		test "$have_pkgconfig" = "yes" &&
-		CFLAGS_SELINUX=$(pkg-config --cflags selinux 2>/dev/null) &&
-		LDFLAGS_SELINUX=$(pkg-config --libs selinux 2>/dev/null)
-	then
-		:
-	else
-		CFLAGS_SELINUX=""
-		LDFLAGS_SELINUX="-lselinux"
-	fi
-
-	if "$CC" $CFLAGS $CFLAGS_SELINUX "$tmp.c" \
-		$LDFLAGS $LDFLAGS_SELINUX -o "$tmp.o" >/dev/null 2>&1; then
-		CONFIG_SELINUX=1
-		printf "%s\n" "yes" >&2
-	else
-		printf "%s\n" "no" >&2
-		CFLAGS_SELINUX=""
-		LDFLAGS_SELINUX=""
-		if test "$selinux" = "yes"; then
-			fail "$0: cannot find libselinux"
-		fi
-	fi
-fi
-
-printf "checking for memrchr... " >&2
-
-cat >"$tmp.c" <<EOF
-#define _GNU_SOURCE
-#include <string.h>
-
-int main(int argc, char *argv[]) {
-        return !memrchr("\n", '\n', 1);
-}
-EOF
-
-if "$CC" $CFLAGS $CFLAGS_STD "$tmp.c" $LDFLAGS -o "$tmp.o" >/dev/null 2>&1; then
-	HAVE_MEMRCHR=1
-	printf "%s\n" "yes" >&2
-else
-	HAVE_MEMRCHR=0
-	printf "%s\n" "no" >&2
-fi
 
 if [ -n "${VERSION}" ]; then
 	:
@@ -601,51 +298,243 @@ else
 	printf "%s\n" "no" >&2
 fi
 
+exec > "$tmp.mk"
+
+CONFIG_STRING=""
+
+UI_TERMINAL_BACKEND=ui-terminal-vt100
+
+if [ "$curses" = "no" ]; then
+	:
+else
+	printf "checking for libcurses...\n" >&2
+
+	cat > "$tmp.c" <<- EOF
+	#include <curses.h>
+
+	int main(int argc, char *argv[]) {
+		initscr();
+		endwin();
+		return 0;
+	}
+	EOF
+
+	if resolve CURSES ncursesw ncurses curses; then
+		echo "CFLAGS_CURSES=-DCONFIG_CURSES $cflags"
+		echo "LDFLAGS_CURSES=$ldflags"
+		CONFIG_STRING="$CONFIG_STRING +curses"
+		UI_TERMINAL_BACKEND=ui-terminal-curses
+	else
+		fail "$0: cannot find libcurses"
+	fi
+fi
+
+# enabling builtin lpeg requires lua support
+if [ "$lpeg" = "yes" ] && [ "$lua" = "no" ]; then
+	fail "$0: need lua support for built-in lpeg"
+fi
+
+if [ "$lpeg" = "yes" ]; then
+	lua=yes
+fi
+
+if [ "$lua" = "no" ]; then
+	:
+else
+
+	printf "checking for liblua >= 5.1 ...\n" >&2
+
+	cat >"$tmp.c" <<- EOF
+	#include <lua.h>
+	#include <lualib.h>
+	#include <lauxlib.h>
+
+	#if LUA_VERSION_NUM < 501
+	#error "Need at least Lua 5.1"
+	#endif
+
+	int main(int argc, char *argv[]) {
+		lua_State *L = luaL_newstate();
+		luaL_openlibs(L);
+		lua_close(L);
+		return 0;
+	}
+	EOF
+
+	if RLDFLAGS="-l -ldl" resolve LUA lua lua5.4 lua5.3 lua5.2 lua-5.4 lua-5.3 lua-5.2 lua54 lua53 lua52 luajit; then
+		echo "CFLAGS_LUA=-DCONFIG_LUA $cflags"
+		echo "LDFLAGS_LUA=$ldflags"
+		lua="yes"
+		CONFIG_STRING="$CONFIG_STRING +lua"
+	else
+		fail "$0: cannot find liblua"
+	fi
+fi
+
+if [ "$lpeg" != "yes" ]; then
+	:
+elif [ "$lua" = "no" ]; then
+	:#fail "$0: need lua support for built-in lpeg"
+else
+	printf "checking for Lua statically linked liblpeg...\n" >&2
+
+	cat >"$tmp.c" <<- EOF
+	#include <lua.h>
+	#include <lualib.h>
+	#include <lauxlib.h>
+
+	int main(int argc, char *argv[]) {
+		lua_State *L = luaL_newstate();
+		luaL_openlibs(L);
+		extern int luaopen_lpeg(lua_State *L);
+		lua_getglobal(L, "package");
+		lua_getfield(L, -1, "preload");
+		lua_pushcfunction(L, luaopen_lpeg);
+		lua_setfield(L, -2, "lpeg");
+		lua_pop(L, 2);
+		lua_close(L);
+		return 0;
+	}
+	EOF
+
+	if RLDFLAGS="-lm -ldl $LDFLAGS_LUA" RCFLAGS="$CFLAGS_LUA"  resolve LPEG lpeg lua5.4-lpeg lua5.3-lpeg lua5.2-lpeg; then
+		echo "CFLAGS_LPEG=-DCONFIG_LPEG $cflags"
+		echo "LDFLAGS_LPEG=$ldflags"
+		CONFIG_STRING="$CONFIG_STRING +lpeg"
+	elif [ "$lpeg" = "yes" ]; then
+		fail "$0: cannot find liblpeg"
+	fi
+fi
+
+REGEX=text-regex
+
+if [ "$tre" = "no" ]; then
+	:
+else
+
+	printf "checking for libtre...\n" >&2
+
+	cat > "$tmp.c" <<- EOF
+	#include <stddef.h>
+	#include <tre/tre.h>
+
+	int main() {
+		regex_t preg;
+		tre_str_source *source = NULL;
+		regmatch_t pmatch[1];
+		tre_regcomp(&preg, "", REG_EXTENDED);
+		tre_regexec(&preg, "", 1, pmatch, 0);
+		tre_regfree(&preg);
+		return 0;
+	}
+	EOF
+
+	if resolve TRE tre; then
+		echo "CFLAGS_TRE=-DCONFIG_TRE $cflags"
+		echo "LDFLAGS_TRE=$ldflags"
+		CONFIG_STRING="$CONFIG_STRING +tre"
+		REGEX=text-regex-tre
+	else
+		fail "$0: cannot find libtre"
+	fi
+fi
+
+
+if [ "$acl" = "no" ]; then
+	:
+else
+	printf "checking for libacl...\n" >&2
+
+	cat > "$tmp.c" <<- EOF
+	#include <sys/types.h>
+	#include <sys/acl.h>
+
+	int main(int argc, char *argv[]) {
+		acl_t acl = acl_get_fd(0);
+		return 0;
+	}
+	EOF
+
+	if resolve ACL acl libacl; then
+		echo "CFLAGS_ACL=-DCONFIG_ACL $cflags"
+		echo "LDFLAGS_ACL=$ldflags"
+		CONFIG_STRING="$CONFIG_STRING +acl"
+	elif [ "$acl" = "yes" ]; then
+		fail "$0: cannot find libacl"
+	fi
+fi
+
+if [ "$selinux" = "no" ]; then
+	:
+else
+	printf "checking for libselinux...\n" >&2
+
+	cat >"$tmp.c" <<- EOF
+	#include <selinux/selinux.h>
+
+	int main(int argc, char *argv[]) {
+		return is_selinux_enabled();
+	}
+	EOF
+
+	if resolve SELINUX selinux; then
+		echo "CFLAGS_SELINUX=-DCONFIG_SELINUX $cflags"
+		echo "LDFLAGS_SELINUX=$ldflags"
+		CONFIG_STRING="$CONFIG_STRING +selinux"
+	elif [ "$selinux" = "yes" ]; then
+		fail "$0: cannot find libselinux"
+	fi
+fi
+
+printf "checking for memrchr... " >&2
+
+cat > "$tmp.c" <<- EOF
+#include <string.h>
+
+int main(int argc, char *argv[]) {
+        return !memrchr("\n", '\n', 1);
+}
+EOF
+
+if "$CC" $CFLAGS $CFLAGS_STD "$tmp.c" $LDFLAGS -o "$tmp.o" >/dev/null 2>&1 && "$tmp.o"; then
+	CFLAGS_STD="$CFLAGS_STD -DCONFIG_MEMRCHR"
+	printf "%s\n" "yes" >&2
+else
+	printf "%s\n" "no" >&2
+fi
+
+if test "$help" = "yes"; then
+	CFLAGS_STD="$CFLAGS_STD -DCONFIG_HELP"
+fi
+
 
 printf "creating config.mk... " >&2
 
-cat > config.mk <<EOF
+exec >&-
+
+# remove any SOURCE definitions declared from pkg-config
+(cat -; sed 's,-D_[A-Z_]*SOURCE[0-9=]*,,g' "$tmp.mk") > config.mk <<EOF
 # This version of config.mk was generated by the vis configure script
 # Any changes made here will be lost if configure is re-run
-SRCDIR = $SRCDIR
-PREFIX = $PREFIX
-EXEC_PREFIX = $EXEC_PREFIX
-BINDIR = $BINDIR
-DOCPREFIX = $DOCDIR
-MANPREFIX = $MANDIR
-SHAREPREFIX = $SHAREDIR
+SRCDIR=$SRCDIR
+PREFIX=$PREFIX
+EXEC_PREFIX=$EXEC_PREFIX
+BINDIR=$BINDIR
+DOCPREFIX=$DOCDIR
+MANPREFIX=$MANDIR
+SHAREPREFIX=$SHAREDIR
 
-CC = $CC
-CFLAGS = $CFLAGS
-LDFLAGS = $LDFLAGS
-CFLAGS_STD = $CFLAGS_STD
-LDFLAGS_STD = $LDFLAGS_STD
-CFLAGS_AUTO = $CFLAGS_AUTO
-LDFLAGS_AUTO = $LDFLAGS_AUTO
-CFLAGS_DEBUG = -U_FORTIFY_SOURCE -UNDEBUG -O0 -g3 -ggdb -Wall -Wextra -pedantic -Wno-missing-field-initializers -Wno-unused-parameter
+CC=$CC
+CFLAGS=$CFLAGS
+LDFLAGS=$LDFLAGS
+CFLAGS_STD=-DCONFIG_STRING="\"$CONFIG_STRING\"" -DVERSION="\"$VERSION\"" $CFLAGS_STD
+LDFLAGS_STD=$LDFLAGS_STD
+CFLAGS_AUTO=$CFLAGS_AUTO
+LDFLAGS_AUTO=$LDFLAGS_AUTO
+CFLAGS_DEBUG=-U_FORTIFY_SOURCE -DDEBUG -O0 -g3 -ggdb
 
-CONFIG_HELP = $CONFIG_HELP
-CONFIG_CURSES = $CONFIG_CURSES
-CFLAGS_CURSES = $CFLAGS_CURSES
-LDFLAGS_CURSES = $LDFLAGS_CURSES
-REGEX_SRC = $REGEX_SRC
-CONFIG_TRE = $CONFIG_TRE
-CFLAGS_TRE = $CFLAGS_TRE
-LDFLAGS_TRE = $LDFLAGS_TRE
-CONFIG_LUA = $CONFIG_LUA
-CFLAGS_LUA = $CFLAGS_LUA
-LDFLAGS_LUA = $LDFLAGS_LUA
-CONFIG_LPEG = $CONFIG_LPEG
-CFLAGS_LPEG = $CFLAGS_LPEG
-LDFLAGS_LPEG = $LDFLAGS_LPEG
-CONFIG_ACL = $CONFIG_ACL
-CFLAGS_ACL = $CFLAGS_ACL
-LDFLAGS_ACL = $LDFLAGS_ACL
-CONFIG_SELINUX = $CONFIG_SELINUX
-CFLAGS_SELINUX = $CFLAGS_SELINUX
-LDFLAGS_SELINUX = $LDFLAGS_SELINUX
-CFLAGS_LIBC = -DHAVE_MEMRCHR=$HAVE_MEMRCHR
-VERSION = $VERSION
+REGEX=$REGEX
+UI_TERMINAL_BACKEND=$UI_TERMINAL_BACKEND
 EOF
 
 if [ "$SRCDIR" != "." ]; then

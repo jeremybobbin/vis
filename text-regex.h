@@ -2,7 +2,7 @@
 #define TEXT_REGEX_H
 
 /* make the REG_* constants available */
-#if CONFIG_TRE
+#ifdef CONFIG_TRE
 #include <tre/tre.h>
 #else
 #include <regex.h>

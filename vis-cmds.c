@@ -781,14 +781,14 @@ static bool cmd_help(Vis *vis, Win *win, Command *cmd, const char *argv[], Selec
 
 	const struct {
 		const char *name;
-		bool enabled;
+		char *enabled;
 	} configs[] = {
-		{ "Curses support: ", CONFIG_CURSES },
-		{ "Lua support: ", CONFIG_LUA },
-		{ "Lua LPeg statically built-in: ", CONFIG_LPEG },
-		{ "TRE based regex support: ", CONFIG_TRE },
-		{ "POSIX ACL support: ", CONFIG_ACL },
-		{ "SELinux support: ", CONFIG_SELINUX },
+		{ "Curses support: ",               strstr(CONFIG_STRING, "+curses")  },
+		{ "Lua support: ",                  strstr(CONFIG_STRING, "+lua")     },
+		{ "Lua LPeg statically built-in: ", strstr(CONFIG_STRING, "+lpeg")    },
+		{ "TRE based regex support: ",      strstr(CONFIG_STRING, "+tre")     },
+		{ "POSIX ACL support: ",            strstr(CONFIG_STRING, "+acl")     },
+		{ "SELinux support: ",              strstr(CONFIG_STRING, "+selinux") },
 	};
 
 	for (size_t i = 0; i < LENGTH(configs); i++)

@@ -320,6 +320,19 @@ nextrune(int inc) {
 	return n;
 }
 
+/*
+static char
+*strdup(char *s) {
+	char *d;
+	int n = strlen(s)+1;
+	if (s == NULL || (d = malloc(n)) == NULL) {
+		return NULL;
+	}
+	memcpy(d, s, n);
+	return d;
+}
+*/
+
 static void
 readstdin(void) {
 	char buf[sizeof text], *p, *maxstr = NULL;

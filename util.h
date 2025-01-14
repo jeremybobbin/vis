@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <string.h>
+#include <stdlib.h>
 
 #define LENGTH(x)  ((int)(sizeof (x) / sizeof *(x)))
 #define MIN(a, b)  ((a) > (b) ? (b) : (a))
@@ -23,16 +25,19 @@ static inline bool addu(size_t a, size_t b, size_t *c) {
 }
 #endif
 
-#if !HAVE_MEMRCHR
-/* MIT licensed implementation from musl libc */
-static void *memrchr(const void *m, int c, size_t n)
-{
-	const unsigned char *s = m;
-	c = (unsigned char)c;
-	while (n--) if (s[n]==c) return (void *)(s+n);
-	return 0;
+/*
+#ifndef strdup
+inline char *strdup(const char *s) {
+	char *d;
+	int n = strlen(s)+1;
+	if ((d = malloc(n)) == NULL) {
+		return NULL;
+	}
+	memcpy(d, s, n);
+	return d;
 }
 #endif
+*/
 
 /* Needed for building on GNU Hurd */
 

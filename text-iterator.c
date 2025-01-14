@@ -1,6 +1,3 @@
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE /* memrchr(3) is non-standard */
-#endif
 #include <limits.h>
 #include <stddef.h>
 #include <errno.h>
@@ -71,6 +68,16 @@ bool text_iterator_byte_prev(Iterator *it, char *b) {
 		*b = *it->text;
 	return true;
 }
+
+#ifndef CONFIG_MEMRCHR
+/* MIT licensed implementation from musl libc */
+static inline void *memrchr(const void *m, int c, size_t n) {
+	const unsigned char *s = m;
+	c = (unsigned char)c;
+	while (n--) if (s[n]==c) return (void *)(s+n);
+	return 0;
+}
+#endif
 
 bool text_iterator_byte_find_prev(Iterator *it, char b) {
 	while (it->text) {

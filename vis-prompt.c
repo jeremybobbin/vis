@@ -1,4 +1,5 @@
 #include <string.h>
+#include <stdio.h>
 #include "vis-core.h"
 #include "text-motions.h"
 #include "text-objects.h"
@@ -174,7 +175,7 @@ void vis_prompt_show(Vis *vis, const char *title) {
 	vis_window_mode_map(prompt, VIS_MODE_VISUAL, true, "<Enter>", &prompt_enter_binding);
 	vis_window_mode_map(prompt, VIS_MODE_NORMAL, true, "<Escape>", &prompt_esc_binding);
 	vis_window_mode_map(prompt, VIS_MODE_INSERT, true, "<Up>", &prompt_up_binding);
-	if (CONFIG_LUA)
+	if (vis->lua)
 		vis_window_mode_map(prompt, VIS_MODE_INSERT, true, "<Tab>", &prompt_tab_binding);
 	vis_mode_switch(vis, VIS_MODE_INSERT);
 }

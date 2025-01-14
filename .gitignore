@@ -12,4 +12,5 @@
 *.gcno
 *.gcov
 *.html
+*.a
 *.o

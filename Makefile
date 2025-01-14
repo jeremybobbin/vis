@@ -1,35 +1,34 @@
 .POSIX:
-.SUFFIXES: .o .c
+.SUFFIXES: .o .c .a
 
 include config.mk
 
-SRC = array.c \
-	string.c \
-	libutf.c \
-	main.c \
-	map.c \
-	sam.c \
-	text.c \
-	text-common.c \
-	text-io.c \
-	text-iterator.c \
-	text-motions.c \
-	text-objects.c \
-	text-util.c \
-	ui-terminal.c \
-	view.c \
-	vis.c \
-	vis-lua.c \
-	vis-marks.c \
-	vis-modes.c \
-	vis-motions.c \
-	vis-operators.c \
-	vis-prompt.c \
-	vis-registers.c \
-	vis-text-objects.c \
-	$(REGEX_SRC)
-
-OBJ=$(SRC:c=o)
+OBJ = array.o \
+	$(REGEX_OBJ) \
+	main.o \
+	sam.o \
+	string.o \
+	libutf.o \
+	map.o \
+	libkey.o \
+	text.o \
+	text-common.o \
+	text-io.o \
+	text-iterator.o \
+	text-motions.o \
+	text-objects.o \
+	text-util.o \
+	ui-terminal.o \
+	view.o \
+	vis.o \
+	vis-lua.o \
+	vis-marks.o \
+	vis-modes.o \
+	vis-motions.o \
+	vis-operators.o \
+	vis-prompt.o \
+	vis-registers.o \
+	vis-text-objects.o \
 
 ELF = vis vis-menu vis-digraph vis-keys
 EXECUTABLES = $(ELF) vis-clipboard vis-complete vis-open
@@ -38,21 +37,9 @@ MANUALS = $(EXECUTABLES:=.1)
 
 DOCUMENTATION = LICENSE README.md
 
-CFLAGS_VIS = $(CFLAGS_AUTO) $(CFLAGS_CURSES) $(CFLAGS_ACL) \
-	$(CFLAGS_SELINUX) $(CFLAGS_TRE) $(CFLAGS_LUA) $(CFLAGS_LPEG) $(CFLAGS_STD) \
-	$(CFLAGS_LIBC) \
-	-DVIS_PATH=\"${SHAREPREFIX}/vis\" \
-	-DCONFIG_HELP=${CONFIG_HELP} \
-	-DCONFIG_CURSES=${CONFIG_CURSES} \
-	-DCONFIG_LUA=${CONFIG_LUA} \
-	-DCONFIG_LPEG=${CONFIG_LPEG} \
-	-DCONFIG_TRE=${CONFIG_TRE} \
-	-DCONFIG_SELINUX=${CONFIG_SELINUX} \
-	-DCONFIG_ACL=${CONFIG_ACL} \
-	-DVERSION=\"${VERSION}\"
+CFLAGS_VIS = $(CFLAGS_AUTO) $(CFLAGS_CURSES) $(CFLAGS_ACL) $(CFLAGS_SELINUX) $(CFLAGS_TRE) $(CFLAGS_LUA) $(CFLAGS_LPEG) $(CFLAGS_STD) -DVIS_PATH=\"${SHAREPREFIX}/vis\"
 
-LDFLAGS_VIS = $(LDFLAGS_AUTO) $(LDFLAGS_CURSES) $(LDFLAGS_ACL) \
-	$(LDFLAGS_SELINUX) $(LDFLAGS_TRE) $(LDFLAGS_LUA) $(LDFLAGS_LPEG) $(LDFLAGS_STD)
+LDFLAGS_VIS = $(LDFLAGS_AUTO) $(LDFLAGS_CURSES) $(LDFLAGS_ACL) $(LDFLAGS_SELINUX) $(LDFLAGS_TRE) $(LDFLAGS_LUA) $(LDFLAGS_LPEG) $(LDFLAGS_STD)
 
 STRIP=strip
 TAR=tar
@@ -61,7 +48,11 @@ DOCKER=docker
 all: $(ELF)
 
 .c.o:
-	$(CC) ${CFLAGS} ${CFLAGS_VIS} ${CFLAGS_STD} ${CFLAGS_EXTRA} -c $< -o $@
+	$(CC) $(CFLAGS) $(CFLAGS_VIS) $(CFLAGS_EXTRA) -c $< -o $@
+
+.o.a:
+	$(AR) $(ARFLAGS) $@ $?
+
 
 config.mk:
 	@touch $@
@@ -76,21 +67,20 @@ array.o: array.h util.h
 string.o: string.h util.h
 libutf.o: libutf.h util.h
 
-text.o: text.h  text-internal.h array.o util.h text-util.o text-motions.o
-text-common.o: text.o
-text-io.o: text-internal.h  util.h text.o text-util.o
-text-iterator.o: text.o util.h
-text-motions.o: text-motions.h text-objects.h util.h text-util.o
-text-objects.o: text-objects.h text-motions.o text-util.o util.h
-$(REGEX_SRC:.c=.o): text-regex.h $(REGEX_SRC)
+text.o: text.h text-internal.h array.h util.h text-util.o text-motions.o
+text-common.o: text.h
+text-io.o: text-internal.h  util.h text.h text-util.h
+text-iterator.o: text.h util.h
+text-motions.o: text-motions.h text-objects.h util.h text-util.h
+text-objects.o: text-objects.h text-motions.h text-util.h util.h
+$(REGEX_OBJ): text-regex.h
 
 
-sam.o: sam.h vis-core.h string.o text.o text-motions.o text-objects.o $(REGEX_SRC:.c=.o) util.h vis-cmds.c
+sam.o: sam.h vis-core.h string.h text.h text-motions.h text-objects.h text-regex.h util.h vis-cmds.c
 text-util.o: text-util.h util.h
-ui-terminal.o: libkey.o ui-terminal-keytab.h vis.h vis-core.h text.h util.h text-util.h ui-terminal-vt100.c ui-terminal-curses.c
+ui-terminal.o: $(UI_TERMINAL_BACKEND).c ui.h libkey.h ui-terminal-keytab.h vis.h vis-core.h text.h util.h text-util.h
 view.o: view.h text.h text-motions.h text-util.h util.h
 
-vis-cmds.o: vis-lua.h sam.c
 vis-lua.o: vis-lua.h vis-core.h text-objects.h text-motions.h util.h
 vis-marks.o: vis-core.h
 vis-registers.o: vis-core.h
@@ -101,46 +91,22 @@ vis-prompt.o: vis-core.h text-motions.h text-objects.h text-util.h
 vis-text-objects.o: vis-core.h text-objects.h util.h
 
 libkey.o: libkey.h map.o
-vis.o: vis.h text-util.h util.h vis-core.h ui.h text-motions.o text-objects.o sam.o ui-terminal.o # TODO ui.o
-main.o: config.h util.h array.o string.o libutf.o libkey.o text-util.o text-motions.o text-objects.o ui-terminal.o vis-lua.o vis.o
+vis.o: vis.h text-util.h util.h vis-core.h ui.h text-motions.h text-objects.h sam.h ui-terminal.h # TODO ui.o
+main.o: config.h util.h array.h string.h libutf.h libkey.h text-util.h text-motions.h text-objects.h ui-terminal.h vis-lua.h vis.h
 
-vis: \
-	$(REGEX_SRC:.c=.o) \
-	array.o \
-	string.o \
-	map.o \
-	sam.o \
-	text-common.o \
-	text-io.o \
-	text-iterator.o \
-	text-motions.o \
-	text.o \
-	text-objects.o \
-	text-util.o \
-	view.o \
-	vis-lua.o \
-	vis-modes.o \
-	vis-marks.o \
-	vis-prompt.o \
-	vis-motions.o \
-	vis-registers.o \
-	vis-text-objects.o \
-	vis-operators.o \
-	libutf.o \
-	libkey.o \
-	ui-terminal.o \
-	main.o \
-	vis.o
-	${CC} ${CFLAGS} ${CFLAGS_VIS} ${CFLAGS_EXTRA} $^  -o $@  ${LDFLAGS} ${LDFLAGS_VIS}
+vis.a: $(OBJ)
+
+vis: vis.a
+	${CC} ${CFLAGS} ${CFLAGS_VIS} ${CFLAGS_EXTRA} vis.a -o $@ ${LDFLAGS} ${LDFLAGS_VIS}
 
 vis-keys: vis-keys.o map.o
-	${CC} ${CFLAGS} ${CFLAGS_AUTO} ${CFLAGS_STD} ${CFLAGS_EXTRA} -DVERSION=\"${VERSION}\" $< map.o ${LDFLAGS} ${LDFLAGS_STD} ${LDFLAGS_AUTO} -o $@
+	${CC} ${CFLAGS} ${CFLAGS_AUTO} ${CFLAGS_STD} ${CFLAGS_EXTRA} $< map.o ${LDFLAGS} ${LDFLAGS_STD} ${LDFLAGS_AUTO} -o $@
 
 vis-menu: vis-menu.c
-	${CC} ${CFLAGS} ${CFLAGS_AUTO} ${CFLAGS_STD} ${CFLAGS_EXTRA} -DVERSION=\"${VERSION}\" $< ${LDFLAGS} ${LDFLAGS_STD} ${LDFLAGS_AUTO} -o $@
+	${CC} ${CFLAGS} ${CFLAGS_AUTO} ${CFLAGS_STD} ${CFLAGS_EXTRA} $< ${LDFLAGS} ${LDFLAGS_STD} ${LDFLAGS_AUTO} -o $@
 
 vis-digraph: vis-digraph.c
-	${CC} ${CFLAGS} ${CFLAGS_AUTO} ${CFLAGS_STD} ${CFLAGS_EXTRA} -DVERSION=\"${VERSION}\" $< ${LDFLAGS} ${LDFLAGS_STD} ${LDFLAGS_AUTO} -o $@
+	${CC} ${CFLAGS} ${CFLAGS_AUTO} ${CFLAGS_STD} ${CFLAGS_EXTRA} $< ${LDFLAGS} ${LDFLAGS_STD} ${LDFLAGS_AUTO} -o $@
 
 vis-single-payload.inc: $(EXECUTABLES) lua/*
 	for e in $(ELF); do \
@@ -202,7 +168,7 @@ testclean:
 
 clean:
 	@echo cleaning
-	@rm -f $(ELF) vis-single vis-single-payload.inc ui-terminal-keytab.h vis-*.tar.gz *.gcov *.gcda *.gcno *.o
+	@rm -f $(ELF) vis-single vis-single-payload.inc ui-terminal-keytab.h vis-*.tar.gz *.gcov *.gcda *.gcno *.o *.a
 
 distclean: clean testclean
 	@echo cleaning build configuration
@@ -234,12 +200,12 @@ install: $(ELF)
 		cp -f "$$e" ${DESTDIR}${PREFIX}/bin && \
 		chmod 755 ${DESTDIR}${PREFIX}/bin/"$$e"; \
 	done
-	@test ${CONFIG_LUA} -eq 0 || { \
+	@if [ -n "${CFLAGS_LUA}" ]; then \
 		echo installing support files to ${DESTDIR}${SHAREPREFIX}/vis; \
 		mkdir -p ${DESTDIR}${SHAREPREFIX}/vis; \
 		cp -r lua/* ${DESTDIR}${SHAREPREFIX}/vis; \
 		rm -rf "${DESTDIR}${SHAREPREFIX}/vis/doc"; \
-	}
+	fi
 	@echo installing documentation to ${DESTDIR}${DOCPREFIX}/vis
 	@mkdir -p ${DESTDIR}${DOCPREFIX}/vis
 	@for d in ${DOCUMENTATION}; do \

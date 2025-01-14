@@ -817,7 +817,7 @@ err:
 }
 
 static int keymap(lua_State *L, Vis *vis, Win *win) {
-	int mode = luaL_checkint(L, 2);
+	int mode = luaL_checkinteger(L, 2);
 	const char *key = luaL_checkstring(L, 3);
 	const char *help = luaL_optstring(L, 5, NULL);
 	KeyBinding *binding = vis_binding_new(vis);
@@ -923,7 +923,7 @@ static int map(lua_State *L) {
  * @see window:unmap
  */
 static int keyunmap(lua_State *L, Vis *vis, Win *win) {
-	enum VisMode mode = luaL_checkint(L, 2);
+	enum VisMode mode = luaL_checkinteger(L, 2);
 	const char *key = luaL_checkstring(L, 3);
 	bool ret;
 	if (!win)
@@ -969,7 +969,7 @@ static bool binding_collect(const char *key, void *value, void *ctx) {
 static int mappings(lua_State *L) {
 	Vis *vis = obj_ref_check(L, 1, "vis");
 	lua_newtable(L);
-	for (Mode *mode = mode_get(vis, luaL_checkint(L, 2)); mode; mode = mode->parent) {
+	for (Mode *mode = mode_get(vis, luaL_checkinteger(L, 2)); mode; mode = mode->parent) {
 		if (!mode->bindings)
 			continue;
 		map_iterate(mode->bindings, binding_collect, vis->lua);
@@ -1356,7 +1356,7 @@ static int replace(lua_State *L) {
  */
 static int exit_func(lua_State *L) {
 	Vis *vis = obj_ref_check(L, 1, "vis");
-	int code = luaL_checkint(L, 2);
+	int code = luaL_checkunsigned(L, 2);
 	vis_exit(vis, code);
 	return 0;
 }

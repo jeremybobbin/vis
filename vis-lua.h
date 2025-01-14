@@ -9,15 +9,26 @@
 typedef struct lua_State lua_State;
 #endif
 
-#if LUA_VERSION_NUM < 502
-#define lua_pushunsinged lua_pushinteger
-#define lua_setuservalue lua_setfenv
-#define lua_getuservalue lua_getfenv
+#if LUA_VERSION_NUM <= 504
+#define lua_pushunsigned lua_pushinteger
 #define lua_Unsigned lua_Integer
 #define lua_tounsigned lua_tointeger
 #define luaL_optunsigned luaL_optinteger
 #define lua_pushunsigned lua_pushinteger
 #define luaL_checkunsigned luaL_checkinteger
+#endif
+
+#if LUA_VERSION_NUM == 501
+#define lua_setuservalue lua_setfenv
+#define lua_getuservalue lua_getfenv
+/*
+diff luajit lua5.1:
+	-LUA_OK
+	-lua_traceback
+	-lua_setfuncs
+*/
+#ifdef LUA_OK
+#endif
 #endif
 
 #include "vis.h"
