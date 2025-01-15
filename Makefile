@@ -3,8 +3,8 @@
 
 include config.mk
 
-OBJ = array.o \
-	$(REGEX_OBJ) \
+OBJ=array.o \
+	$(REGEX).o \
 	main.o \
 	sam.o \
 	string.o \
@@ -30,16 +30,16 @@ OBJ = array.o \
 	vis-registers.o \
 	vis-text-objects.o \
 
-ELF = vis vis-menu vis-digraph vis-keys
-EXECUTABLES = $(ELF) vis-clipboard vis-complete vis-open
+ELF=vis vis-menu vis-digraph vis-keys
+EXECUTABLES=$(ELF) vis-clipboard vis-complete vis-open
 
-MANUALS = $(EXECUTABLES:=.1)
+MANUALS=$(EXECUTABLES:=.1)
 
-DOCUMENTATION = LICENSE README.md
+DOCUMENTATION=LICENSE README.md
 
-CFLAGS_VIS = $(CFLAGS_AUTO) $(CFLAGS_CURSES) $(CFLAGS_ACL) $(CFLAGS_SELINUX) $(CFLAGS_TRE) $(CFLAGS_LUA) $(CFLAGS_LPEG) $(CFLAGS_STD) -DVIS_PATH=\"${SHAREPREFIX}/vis\"
+CFLAGS_VIS=$(CFLAGS_AUTO) $(CFLAGS_CURSES) $(CFLAGS_ACL) $(CFLAGS_SELINUX) $(CFLAGS_TRE) $(CFLAGS_LUA) $(CFLAGS_LPEG) $(CFLAGS_STD) -DVIS_PATH=\"$(SHAREPREFIX)/vis\"
 
-LDFLAGS_VIS = $(LDFLAGS_AUTO) $(LDFLAGS_CURSES) $(LDFLAGS_ACL) $(LDFLAGS_SELINUX) $(LDFLAGS_TRE) $(LDFLAGS_LUA) $(LDFLAGS_LPEG) $(LDFLAGS_STD)
+LDFLAGS_VIS=$(LDFLAGS_AUTO) $(LDFLAGS_CURSES) $(LDFLAGS_ACL) $(LDFLAGS_SELINUX) $(LDFLAGS_TRE) $(LDFLAGS_LUA) $(LDFLAGS_LPEG) $(LDFLAGS_STD)
 
 STRIP=strip
 TAR=tar
@@ -73,7 +73,7 @@ text-io.o: text-internal.h  util.h text.h text-util.h
 text-iterator.o: text.h util.h
 text-motions.o: text-motions.h text-objects.h util.h text-util.h
 text-objects.o: text-objects.h text-motions.h text-util.h util.h
-$(REGEX_OBJ): text-regex.h
+$(REGEX).o: text-regex.h
 
 
 sam.o: sam.h vis-core.h string.h text.h text-motions.h text-objects.h text-regex.h util.h vis-cmds.c
@@ -97,20 +97,20 @@ main.o: config.h util.h array.h string.h libutf.h libkey.h text-util.h text-moti
 vis.a: $(OBJ)
 
 vis: vis.a
-	${CC} ${CFLAGS} ${CFLAGS_VIS} ${CFLAGS_EXTRA} vis.a -o $@ ${LDFLAGS} ${LDFLAGS_VIS}
+	$(CC) $(CFLAGS) $(CFLAGS_VIS) $(CFLAGS_EXTRA) vis.a -o $@ $(LDFLAGS) $(LDFLAGS_VIS)
 
 vis-keys: vis-keys.o map.o
-	${CC} ${CFLAGS} ${CFLAGS_AUTO} ${CFLAGS_STD} ${CFLAGS_EXTRA} $< map.o ${LDFLAGS} ${LDFLAGS_STD} ${LDFLAGS_AUTO} -o $@
+	$(CC) $(CFLAGS) $(CFLAGS_AUTO) $(CFLAGS_STD) $(CFLAGS_EXTRA) $< map.o $(LDFLAGS) $(LDFLAGS_STD) $(LDFLAGS_AUTO) -o $@
 
 vis-menu: vis-menu.c
-	${CC} ${CFLAGS} ${CFLAGS_AUTO} ${CFLAGS_STD} ${CFLAGS_EXTRA} $< ${LDFLAGS} ${LDFLAGS_STD} ${LDFLAGS_AUTO} -o $@
+	$(CC) $(CFLAGS) $(CFLAGS_AUTO) $(CFLAGS_STD) $(CFLAGS_EXTRA) $< $(LDFLAGS) $(LDFLAGS_STD) $(LDFLAGS_AUTO) -o $@
 
 vis-digraph: vis-digraph.c
-	${CC} ${CFLAGS} ${CFLAGS_AUTO} ${CFLAGS_STD} ${CFLAGS_EXTRA} $< ${LDFLAGS} ${LDFLAGS_STD} ${LDFLAGS_AUTO} -o $@
+	$(CC) $(CFLAGS) $(CFLAGS_AUTO) $(CFLAGS_STD) $(CFLAGS_EXTRA) $< $(LDFLAGS) $(LDFLAGS_STD) $(LDFLAGS_AUTO) -o $@
 
 vis-single-payload.inc: $(EXECUTABLES) lua/*
 	for e in $(ELF); do \
-		${STRIP} "$$e"; \
+		$(STRIP) "$$e"; \
 	done
 	echo '#ifndef VIS_SINGLE_PAYLOAD_H' > $@
 	echo '#define VIS_SINGLE_PAYLOAD_H' >> $@
@@ -122,8 +122,8 @@ vis-single-payload.inc: $(EXECUTABLES) lua/*
 	echo '#endif' >> $@
 
 vis-single: vis-single.c vis-single-payload.inc
-	${CC} ${CFLAGS} ${CFLAGS_AUTO} ${CFLAGS_STD} ${CFLAGS_EXTRA} $< ${LDFLAGS} ${LDFLAGS_STD} ${LDFLAGS_AUTO} -luntar -llzma -o $@
-	${STRIP} $@
+	$(CC) $(CFLAGS) $(CFLAGS_AUTO) $(CFLAGS_STD) $(CFLAGS_EXTRA) $< $(LDFLAGS) $(LDFLAGS_STD) $(LDFLAGS_AUTO) -luntar -llzma -o $@
+	$(STRIP) $@
 
 docker-kill:
 	-$(DOCKER) kill vis && $(DOCKER) wait vis
@@ -146,7 +146,7 @@ docker-clean: docker-kill clean
 	-$(DOCKER) image rm vis
 
 debug: clean
-	@$(MAKE) CFLAGS_EXTRA='${CFLAGS_EXTRA} ${CFLAGS_DEBUG}'
+	@$(MAKE) CFLAGS_EXTRA='$(CFLAGS_EXTRA) $(CFLAGS_DEBUG)'
 
 profile: clean
 	@$(MAKE) CFLAGS_AUTO='' LDFLAGS_AUTO='' CFLAGS_EXTRA='-pg -O2'
@@ -176,69 +176,69 @@ distclean: clean testclean
 
 dist: distclean
 	@echo creating dist tarball
-	@git archive --prefix=vis-${VERSION}/ -o vis-${VERSION}.tar.gz HEAD
+	@git archive --prefix=vis-$(VERSION)/ -o vis-$(VERSION).tar.gz HEAD
 
 man:
-	@for m in ${MANUALS}; do \
+	@for m in $(MANUALS); do \
 		echo "Generating $$m"; \
-		sed -e "s/VERSION/${VERSION}/" "man/$$m" | mandoc -W warning -T utf8 -T html -O man=%N.%S.html -O style=mandoc.css 1> "man/$$m.html" || true; \
+		sed -e "s/VERSION/$(VERSION)/" "man/$$m" | mandoc -W warning -T utf8 -T html -O man=%N.%S.html -O style=mandoc.css 1> "man/$$m.html" || true; \
 	done
 
 luadoc:
-	@cd lua/doc && ldoc . && sed -e "s/RELEASE/${VERSION}/" -i index.html
+	@cd lua/doc && ldoc . && sed -e "s/RELEASE/$(VERSION)/" -i index.html
 
 luadoc-all:
-	@cd lua/doc && ldoc -a . && sed -e "s/RELEASE/${VERSION}/" -i index.html
+	@cd lua/doc && ldoc -a . && sed -e "s/RELEASE/$(VERSION)/" -i index.html
 
 luacheck:
 	@luacheck --config .luacheckrc lua test/lua | less -RFX
 
 install: $(ELF)
-	@echo installing executable files to ${DESTDIR}${PREFIX}/bin
-	@mkdir -p ${DESTDIR}${PREFIX}/bin
-	@for e in ${EXECUTABLES}; do \
-		cp -f "$$e" ${DESTDIR}${PREFIX}/bin && \
-		chmod 755 ${DESTDIR}${PREFIX}/bin/"$$e"; \
+	@echo installing executable files to $(DESTDIR)$(PREFIX)/bin
+	@mkdir -p $(DESTDIR)$(PREFIX)/bin
+	@for e in $(EXECUTABLES); do \
+		cp -f "$$e" $(DESTDIR)$(PREFIX)/bin && \
+		chmod 755 $(DESTDIR)$(PREFIX)/bin/"$$e"; \
 	done
-	@if [ -n "${CFLAGS_LUA}" ]; then \
-		echo installing support files to ${DESTDIR}${SHAREPREFIX}/vis; \
-		mkdir -p ${DESTDIR}${SHAREPREFIX}/vis; \
-		cp -r lua/* ${DESTDIR}${SHAREPREFIX}/vis; \
-		rm -rf "${DESTDIR}${SHAREPREFIX}/vis/doc"; \
+	@if [ -n "$(CFLAGS_LUA)" ]; then \
+		echo installing support files to $(DESTDIR)$(SHAREPREFIX)/vis; \
+		mkdir -p $(DESTDIR)$(SHAREPREFIX)/vis; \
+		cp -r lua/* $(DESTDIR)$(SHAREPREFIX)/vis; \
+		rm -rf "$(DESTDIR)$(SHAREPREFIX)/vis/doc"; \
 	fi
-	@echo installing documentation to ${DESTDIR}${DOCPREFIX}/vis
-	@mkdir -p ${DESTDIR}${DOCPREFIX}/vis
-	@for d in ${DOCUMENTATION}; do \
-		cp "$$d" ${DESTDIR}${DOCPREFIX}/vis && \
-		chmod 644 "${DESTDIR}${DOCPREFIX}/vis/$$d"; \
+	@echo installing documentation to $(DESTDIR)$(DOCPREFIX)/vis
+	@mkdir -p $(DESTDIR)$(DOCPREFIX)/vis
+	@for d in $(DOCUMENTATION); do \
+		cp "$$d" $(DESTDIR)$(DOCPREFIX)/vis && \
+		chmod 644 "$(DESTDIR)$(DOCPREFIX)/vis/$$d"; \
 	done
-	@echo installing manual pages to ${DESTDIR}${MANPREFIX}/man1
-	@mkdir -p ${DESTDIR}${MANPREFIX}/man1
-	@for m in ${MANUALS}; do \
-		sed -e "s/VERSION/${VERSION}/" < "man/$$m" >  "${DESTDIR}${MANPREFIX}/man1/$$m" && \
-		chmod 644 "${DESTDIR}${MANPREFIX}/man1/$$m"; \
+	@echo installing manual pages to $(DESTDIR)$(MANPREFIX)/man1
+	@mkdir -p $(DESTDIR)$(MANPREFIX)/man1
+	@for m in $(MANUALS); do \
+		sed -e "s/VERSION/$(VERSION)/" < "man/$$m" >  "$(DESTDIR)$(MANPREFIX)/man1/$$m" && \
+		chmod 644 "$(DESTDIR)$(MANPREFIX)/man1/$$m"; \
 	done
 
 install-strip: install
 	@echo stripping executables
 	@for e in $(ELF); do \
-		${STRIP} ${DESTDIR}${PREFIX}/bin/"$$e"; \
+		$(STRIP) $(DESTDIR)$(PREFIX)/bin/"$$e"; \
 	done
 
 uninstall:
-	@echo removing executable file from ${DESTDIR}${PREFIX}/bin
-	@for e in ${EXECUTABLES}; do \
-		rm -f ${DESTDIR}${PREFIX}/bin/"$$e"; \
+	@echo removing executable file from $(DESTDIR)$(PREFIX)/bin
+	@for e in $(EXECUTABLES); do \
+		rm -f $(DESTDIR)$(PREFIX)/bin/"$$e"; \
 	done
-	@echo removing documentation from ${DESTDIR}${DOCPREFIX}/vis
-	@for d in ${DOCUMENTATION}; do \
-		rm -f ${DESTDIR}${DOCPREFIX}/vis/"$$d"; \
+	@echo removing documentation from $(DESTDIR)$(DOCPREFIX)/vis
+	@for d in $(DOCUMENTATION); do \
+		rm -f $(DESTDIR)$(DOCPREFIX)/vis/"$$d"; \
 	done
-	@echo removing manual pages from ${DESTDIR}${MANPREFIX}/man1
-	@for m in ${MANUALS}; do \
-		rm -f ${DESTDIR}${MANPREFIX}/man1/"$$m"; \
+	@echo removing manual pages from $(DESTDIR)$(MANPREFIX)/man1
+	@for m in $(MANUALS); do \
+		rm -f $(DESTDIR)$(MANPREFIX)/man1/"$$m"; \
 	done
-	@echo removing support files from ${DESTDIR}${SHAREPREFIX}/vis
-	@rm -rf ${DESTDIR}${SHAREPREFIX}/vis
+	@echo removing support files from $(DESTDIR)$(SHAREPREFIX)/vis
+	@rm -rf $(DESTDIR)$(SHAREPREFIX)/vis
 
 .PHONY: all clean testclean dist distclean install install-strip uninstall debug profile coverage test test-update luadoc luadoc-all luacheck man docker-kill docker docker-clean
