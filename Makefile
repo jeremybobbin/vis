@@ -145,6 +145,9 @@ docker: docker-kill clean
 docker-clean: docker-kill clean
 	-$(DOCKER) image rm vis
 
+release: clean
+	@$(MAKE) CFLAGS_EXTRA='$(CFLAGS_EXTRA) $(CFLAGS_RELEASE)'
+
 debug: clean
 	@$(MAKE) CFLAGS_EXTRA='$(CFLAGS_EXTRA) $(CFLAGS_DEBUG)'
 
