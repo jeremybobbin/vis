@@ -6,6 +6,17 @@
 #include <string.h>
 #include <stdlib.h>
 
+void debug_label(char *label);
+
+#ifdef DEBUG
+#define assert(c) ((c) || (__builtin_trap(), 0))
+#define refute(c) ((c) && (__builtin_trap(), 1))
+#else
+#define assert(c) c
+#define refute(c) c
+#endif
+
+
 #define LENGTH(x)  ((int)(sizeof (x) / sizeof *(x)))
 #define MIN(a, b)  ((a) > (b) ? (b) : (a))
 #define MAX(a, b)  ((a) < (b) ? (b) : (a))
@@ -15,10 +26,10 @@
 #define ISASCII(ch) ((unsigned char)ch < 0x80)
 
 #if GCC_VERSION>=5004000 || CLANG_VERSION>=4000000
-#define addu __builtin_add_overflow
+#define addu(a, b, c) refute(__builtin_add_overflow(a, b, c))
 #else
 static inline bool addu(size_t a, size_t b, size_t *c) {
-	if (SIZE_MAX - a < b)
+	if (refute(SIZE_MAX - a < b))
 		return false;
 	*c = a + b;
 	return true;

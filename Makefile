@@ -29,6 +29,7 @@ OBJ=array.o \
 	vis-prompt.o \
 	vis-registers.o \
 	vis-text-objects.o \
+	util.o
 
 ELF=vis vis-menu vis-digraph vis-keys
 EXECUTABLES=$(ELF) vis-clipboard vis-complete vis-open
@@ -89,6 +90,7 @@ vis-motions.o: vis-core.h text-motions.h text-objects.h text-util.h util.h
 vis-operators.o: vis-core.h text-motions.h text-objects.h text-util.h util.h
 vis-prompt.o: vis-core.h text-motions.h text-objects.h text-util.h
 vis-text-objects.o: vis-core.h text-objects.h util.h
+util.o: util.h
 
 libkey.o: libkey.h map.o
 vis.o: vis.h text-util.h util.h vis-core.h ui.h text-motions.h text-objects.h sam.h ui-terminal.h # TODO ui.o
