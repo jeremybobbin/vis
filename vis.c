@@ -57,6 +57,7 @@ bool vis_event_emit(Vis *vis, enum VisEvents id, ...) {
 	case VIS_EVENT_FILE_SAVE_POST:
 	case VIS_EVENT_FILE_CLOSE:
 	{
+		debug_label("file_event");
 		File *file = va_arg(ap, File*);
 		if (id == VIS_EVENT_FILE_OPEN && vis->event->file_open) {
 			vis->event->file_open(vis, file);
@@ -76,6 +77,7 @@ bool vis_event_emit(Vis *vis, enum VisEvents id, ...) {
 	case VIS_EVENT_WIN_HIGHLIGHT:
 	case VIS_EVENT_WIN_STATUS:
 	{
+		debug_label("win_event");
 		Win *win = va_arg(ap, Win*);
 		if (vis->event->win_open && id == VIS_EVENT_WIN_OPEN) {
 			vis->event->win_open(vis, win);
@@ -1354,7 +1356,9 @@ int vis_run(Vis *vis) {
 		vis_update(vis);
 		if (pselect(1, &fds, NULL, NULL, NULL, &emptyset) >= 0) {
 			// success
+			debug_label("select_ready");
 		} else if (errno == EINTR) {
+			debug_label("select_interrupted");
 			continue;
 		} else {
 			/* TODO save all pending changes to a ~suffixed file */
