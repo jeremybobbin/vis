@@ -33,8 +33,6 @@ diff luajit lua5.1:
 
 #include "vis.h"
 
-/* add a directory to consider when loading lua files */
-bool vis_lua_path_add(Vis*, const char *path);
 /* get semicolon separated list of paths to load lua files
  * (*lpath = package.path) and Lua C modules (*cpath = package.cpath)
  * both these pointers need to be free(3)-ed by the caller */
@@ -48,6 +46,8 @@ void vis_lua_quit(Vis*);
 #define vis_lua_mode_insert_input vis_insert_key
 #define vis_lua_mode_replace_input vis_replace_key
 #else
+extern const char lua_internal[];
+extern const int  lua_internal_size;
 void vis_lua_mode_insert_input(Vis*, const char *key, size_t len);
 void vis_lua_mode_replace_input(Vis*, const char *key, size_t len);
 #endif

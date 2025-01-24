@@ -107,7 +107,7 @@ typedef struct {
  * @{
  */
 /** Create a new editor instance using the given user interface and event handlers. */
-Vis *vis_new(Ui*, VisEvent*);
+Vis *vis_new(Ui*, VisEvent*, int argc, char **argv);
 /** Free all resources associated with this editor instance, terminates UI. */
 void vis_free(Vis*);
 /**

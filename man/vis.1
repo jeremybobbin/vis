@@ -1457,7 +1457,7 @@ at the start of adjacent lines.
 .Nm
 uses Lua for configuration and scripting purposes.
 During startup
-.Pa visrc.lua
+.Pa vis/rc.lua
 (see the
 .Sx FILES
 section) is sourced which can be used to set personal configuration options.
@@ -1470,6 +1470,20 @@ As an example the following will enable the display of line numbers:
 .Bl -tag -width indent
 .It Ev VIS_PATH
 The default path to use to load Lua support files.
+
+The typical "?.lua" and "?/init.lua" are appended to the string, before being
+insterted at the front of package.path
+.It Ev VIS_PATH_LUA
+The
+semi-colon-terminated and question-mark-globbing directory list telling lua
+.Xr lua 1
+where to look for packages.
+
+This overrides VIS_PATH and the original package path
+.It Ev VIS_CPATH_LUA
+The path used to import
+.Xr lua 1
+shared libraries
 .It Ev HOME
 The home directory used for the
 .Ic cd
@@ -1516,20 +1530,24 @@ The screen is resized.
 Upon startup
 .Nm
 will source the first
-.Pa visrc.lua
+.Pa vis/rc.lua
 configuration file found from these locations.
 All actively used paths can be listed at runtime using the
 .Cm :help
 command.
 .Bl -bullet
 .It
-.Pa $VIS_PATH
-.It
-The location of the
+The sibling-lua directory of the
 .Nm
-binary (on systems where
-.Pa /proc/self/exe
-is available).
+binary, if it was NOT invoked from
+.Pa $PATH .
+
+For example, with an invokation like
+.Ic ../vis ,
+.Ic ../lua/rc.lua
+is loaded.
+
+This ensures that user-developers are running all lua assets from the local repository
 .It
 .Pa $XDG_CONFIG_HOME/vis
 where
@@ -1551,6 +1569,7 @@ depending on the build configuration.
 When creating a new
 .Pa visrc.lua
 be sure to copy the structure from here.
+
 .El
 .
 .Sh EXIT STATUS

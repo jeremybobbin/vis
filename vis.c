@@ -658,12 +658,14 @@ void vis_window_close(Win *win) {
 	vis_draw(vis);
 }
 
-Vis *vis_new(Ui *ui, VisEvent *event) {
+Vis *vis_new(Ui *ui, VisEvent *event, int argc, char **argv) {
 	if (!ui)
 		return NULL;
 	Vis *vis = calloc(1, sizeof(Vis));
 	if (!vis)
 		return NULL;
+	vis->argc = argc;
+	vis->argv = argv;
 	vis->exit_status = -1;
 	vis->ui = ui;
 	vis->tabwidth = 8;

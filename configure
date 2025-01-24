@@ -20,6 +20,7 @@ Installation directories:
 Fine tuning of the installation directories:
   --bindir=DIR            user executables [EPREFIX/bin]
   --sharedir=DIR          share directories [PREFIX/share]
+  --luadir=DIR            lua package path [PREFIX/share/lua/LUA_VERSION/]
   --docdir=DIR            misc. documentation [PREFIX/share/doc]
   --mandir=DIR            man pages [PREFIX/share/man]
 
@@ -31,6 +32,10 @@ Optional features:
   --enable-selinux        build with SELinux support [auto]
   --enable-acl            build with POSIX ACL support [auto]
   --enable-help           build with built-in help texts [yes]
+
+Optional parameters:
+  --lua-version=X.X       force lua version
+  --with-release-version  version string
 
 Some influential environment variables:
   CC                      C compiler command [detected]
@@ -53,6 +58,9 @@ BINDIR='$(EXEC_PREFIX)/bin'
 SHAREDIR='$(PREFIX)/share'
 DOCDIR='$(PREFIX)/share/doc'
 MANDIR='$(PREFIX)/share/man'
+LUADIR='$(PREFIX)/share/lua'
+
+LUAC=cat
 
 help=yes
 curses=yes
@@ -61,6 +69,7 @@ lpeg=auto
 tre=auto
 selinux=auto
 acl=auto
+lua_version=
 
 stripdir() {
 	printf '%s' "${1#*=}" | tr '\n' ' ' | sed 's,/*$,,'
@@ -91,6 +100,7 @@ for arg; do
 	--enable-acl|--enable-acl=yes) acl=yes ;;
 	--disable-acl|--enable-acl=no) acl=no ;;
 	--debug) debug=yes;;
+	--lua-version=*) lua_version=${arg#*=} ;;
 	--with-release-version=*) VERSION=${arg#*=} ;;
 	--enable-*|--disable-*|--with-*|--without-*|--*dir=*|--build=*) ;;
 	-*) printf "%s: unknown option %s\n" "$0" "$arg" >&2 ;;
@@ -259,7 +269,7 @@ resolve() {
 				cflags="$(pkg-config --cflags "$lib" 2>/dev/null)" &&
 				ldflags="$(pkg-config --libs "$lib" 2>/dev/null)" &&
 				"$CC" $CFLAGS $cflags "$tmp.c" $LDFLAGS $ldflags -o "$tmp.o" >/dev/null 2>&1 &&
-				"$tmp.o" >/dev/null 2>&1
+				"$tmp.o" > "$tmp.out" 2>/dev/null
 			then
 				cflags="${cflags%% }"
 				ldflags="${ldflags%% }"
@@ -273,7 +283,7 @@ resolve() {
 
 		if
 			"$CC" $CFLAGS $RCFLAGS $cflags "$tmp.c" $LDFLAGS $RLDFLAGS $ldflags -o "$tmp.o" >/dev/null 2>&1 &&
-			"$tmp.o" >/dev/null 2>&1
+			"$tmp.o" > "$tmp.out" 2>&1
 		then
 			printf "yes\n" >&2
 			return 0
@@ -341,6 +351,20 @@ fi
 if [ "$lua" = "no" ]; then
 	:
 else
+	if command -v luac >/dev/null 2>&1; then
+		LUAC="luac -o -"
+	fi
+
+	case "$lua_version" in
+	51|5.1) libs="lua51 lua5.1 lua-5.2";;
+	52|5.2) libs="lua52 lua5.2 lua-5.2";;
+	53|5.3) libs="lua53 lua5.3 lua-5.2";;
+	54|5.4) libs="lua54 lua5.4 lua-5.2";;
+	*jit)   libs="luajit";;
+	*)      libs="lua lua5.4 lua5.3 lua5.2
+		      lua-5.4 lua-5.3 lua-5.2
+		      lua54 lua53 lua52 luajit";;
+	esac
 
 	printf "checking for liblua >= 5.1 ...\n" >&2
 
@@ -357,17 +381,24 @@ else
 		lua_State *L = luaL_newstate();
 		luaL_openlibs(L);
 		lua_close(L);
+		printf("%d.%d\n", LUA_VERSION_NUM/100, LUA_VERSION_NUM%100);
 		return 0;
 	}
 	EOF
 
-	if RLDFLAGS="-l -ldl" resolve lua lua5.4 lua5.3 lua5.2 lua-5.4 lua-5.3 lua-5.2 lua54 lua53 lua52 luajit; then
+	if
+		! RLDFLAGS="-ldl" resolve $libs
+	then
+		fail "$0: cannot find liblua"
+	elif LUA_VERSION="$( ! grep '[0-9]\.[0-9]' "$tmp.out")"; then
+		fail "$0: found lua but failed to parse version string from: $(cat "$tmp.out")"
+	elif [ -n "$lua_version" ] && [ "$LUA_VERSION" != "$lua_version" ]; then
+		fail "$0: found lua but it reported a different version than specified - '$lua_version' -> '$LUA_VERSION'"
+	else
 		echo "CFLAGS_LUA=-DCONFIG_LUA $cflags"
 		echo "LDFLAGS_LUA=$ldflags"
-		lua="yes"
 		CONFIG_STRING="$CONFIG_STRING +lua"
-	else
-		fail "$0: cannot find liblua"
+		lua="yes"
 	fi
 fi
 
@@ -507,6 +538,11 @@ if test "$help" = "yes"; then
 	CFLAGS_STD="$CFLAGS_STD -DCONFIG_HELP"
 fi
 
+if [ "$lua_version" = auto ]; then
+	LUAPREFIX="$SHAREDIR/lua"
+else
+	LUAPREFIX="$SHAREDIR/lua/$LUA_VERSION"
+fi
 
 printf "creating config.mk... " >&2
 
@@ -532,6 +568,7 @@ BINDIR=$BINDIR
 DOCPREFIX=$DOCDIR
 MANPREFIX=$MANDIR
 SHAREPREFIX=$SHAREDIR
+LUAPREFIX=$LUAPREFIX
 
 CC=$CC
 CFLAGS=$CFLAGS
@@ -542,6 +579,8 @@ CFLAGS_AUTO=$CFLAGS_AUTO
 LDFLAGS_AUTO=$LDFLAGS_AUTO
 CFLAGS_RELEASE=$CFLAGS_RELEASE
 CFLAGS_DEBUG=-U_FORTIFY_SOURCE -DDEBUG -O0 -g3 -ggdb
+
+LUAC=$LUAC
 
 REGEX=$REGEX
 UI_TERMINAL_BACKEND=$UI_TERMINAL_BACKEND

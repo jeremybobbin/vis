@@ -1,5 +1,5 @@
 .POSIX:
-.SUFFIXES: .o .c .a
+.SUFFIXES: .o .c .a .lua
 
 include config.mk
 
@@ -11,6 +11,7 @@ OBJ=array.o \
 	libutf.o \
 	map.o \
 	libkey.o \
+	lua/internal.o \
 	text.o \
 	text-common.o \
 	text-io.o \
@@ -54,6 +55,12 @@ all: $(ELF)
 .o.a:
 	$(AR) $(ARFLAGS) $@ $?
 
+# TODO: simplify
+.lua.c:
+	$(LUAC) $< | \
+		od -v -A n -t oC | \
+		sed 's+ +\\+g; s+^+	"+; 1,1s+^+const char $*[] = \n+; s+$$+"+; $$,$$s,$$,;\nint $*_size = sizeof($*)-1;,;' | \
+		tr '/' '_' > $@
 
 config.mk:
 	@touch $@
@@ -173,7 +180,7 @@ testclean:
 
 clean:
 	@echo cleaning
-	@rm -f $(ELF) vis-single vis-single-payload.inc ui-terminal-keytab.h vis-*.tar.gz *.gcov *.gcda *.gcno *.o *.a
+	@rm -f $(ELF) vis-single vis-single-payload.inc ui-terminal-keytab.h vis-*.tar.gz *.gcov *.gcda *.gcno *.o *.a lua/*.c lua/*.o
 
 distclean: clean testclean
 	@echo cleaning build configuration
@@ -207,8 +214,8 @@ install: $(ELF)
 	done
 	@if [ -n "$(CFLAGS_LUA)" ]; then \
 		echo installing support files to $(DESTDIR)$(SHAREPREFIX)/vis; \
-		mkdir -p $(DESTDIR)$(SHAREPREFIX)/vis; \
-		cp -r lua/* $(DESTDIR)$(SHAREPREFIX)/vis; \
+		mkdir -p $(DESTDIR)$(LUAPREFIX)/vis; \
+		cp -r lua/vis $(DESTDIR)$(LUAPREFIX); \
 		rm -rf "$(DESTDIR)$(SHAREPREFIX)/vis/doc"; \
 	fi
 	@echo installing documentation to $(DESTDIR)$(DOCPREFIX)/vis

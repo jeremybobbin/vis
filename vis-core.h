@@ -197,6 +197,8 @@ struct Win {
 };
 
 struct Vis {
+	int argc;                            /* main process argc & argv - exposed to lua */
+	char **argv;                         /* helps lua determine plugin path for user-development */
 	Ui *ui;                              /* user interface responsible for visual appearance */
 	File *files;                         /* all files currently managed by this editor instance */
 	File *command_file;                  /* special internal file used to store :-command prompt */

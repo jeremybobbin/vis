@@ -1,3 +1,6 @@
 [submodule "test"]
 	path = test
 	url = https://github.com/jeremybobbin/vis-test
+[submodule "lua/scintillua"]
+	path = lua/scintillua
+	url = https://github.com/orbitalquark/scintillua

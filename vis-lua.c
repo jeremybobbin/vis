@@ -26,10 +26,6 @@
 #include "text-motions.h"
 #include "util.h"
 
-#ifndef VIS_PATH
-#define VIS_PATH "/usr/local/share/vis"
-#endif
-
 #define VIS_LUA_TYPE_VIS "vis"
 #define VIS_LUA_TYPE_FILE "file"
 #define VIS_LUA_TYPE_TEXT "text"
@@ -148,7 +144,6 @@ static void window_status_update(Vis *vis, Win *win) {
 
 #if !CONFIG_LUA
 
-bool vis_lua_path_add(Vis *vis, const char *path) { return true; }
 bool vis_lua_paths_get(Vis *vis, char **lpath, char **cpath) { return false; }
 void vis_lua_init(Vis *vis) { }
 void vis_lua_start(Vis *vis) { }
@@ -1572,6 +1567,7 @@ static const struct luaL_Reg vis_lua[] = {
 
 static const struct luaL_Reg ui_funcs[] = {
 	{ "__index", index_common },
+	{ "__newindex", newindex_common },
 	{ NULL, NULL },
 };
 
@@ -2655,60 +2651,6 @@ static void vis_lua_event_call(Vis *vis, const char *name) {
 	lua_pop(L, 1);
 }
 
-static bool vis_lua_path_strip(Vis *vis) {
-	lua_State *L = vis->lua;
-	lua_getglobal(L, "package");
-
-	for (const char **var = (const char*[]){ "path", "cpath", NULL }; *var; var++) {
-
-		lua_getfield(L, -1, *var);
-		const char *path = lua_tostring(L, -1);
-		lua_pop(L, 1);
-		if (!path)
-			return false;
-
-		char *copy = strdup(path), *stripped = calloc(1, strlen(path)+2);
-		if (!copy || !stripped) {
-			free(copy);
-			free(stripped);
-			return false;
-		}
-
-		for (char *elem = copy, *stripped_elem = stripped, *next; elem; elem = next) {
-			if ((next = strstr(elem, ";")))
-				*next++ = '\0';
-			if (strstr(elem, "./"))
-				continue; /* skip relative path entries */
-			stripped_elem += sprintf(stripped_elem, "%s;", elem);
-		}
-
-		lua_pushstring(L, stripped);
-		lua_setfield(L, -2, *var);
-
-		free(copy);
-		free(stripped);
-	}
-
-	lua_pop(L, 1); /* package */
-	return true;
-}
-
-bool vis_lua_path_add(Vis *vis, const char *path) {
-	lua_State *L = vis->lua;
-	if (!L || !path)
-		return false;
-	lua_getglobal(L, "package");
-	lua_pushstring(L, path);
-	lua_pushstring(L, "/?.lua;");
-	lua_pushstring(L, path);
-	lua_pushstring(L, "/?/init.lua;");
-	lua_getfield(L, -5, "path");
-	lua_concat(L, 5);
-	lua_setfield(L, -2, "path");
-	lua_pop(L, 1); /* package */
-	return true;
-}
-
 bool vis_lua_paths_get(Vis *vis, char **lpath, char **cpath) {
 	lua_State *L = vis->lua;
 	if (!L)
@@ -2724,25 +2666,6 @@ bool vis_lua_paths_get(Vis *vis, char **lpath, char **cpath) {
 	return true;
 }
 
-static bool package_exist(Vis *vis, lua_State *L, const char *name) {
-	const char lua[] =
-		"local name = ...\n"
-		"for _, searcher in ipairs(package.searchers or package.loaders) do\n"
-			"local loader = searcher(name)\n"
-			"if type(loader) == 'function' then\n"
-				"return true\n"
-			"end\n"
-		"end\n"
-		"return false\n";
-	if (luaL_loadstring(L, lua) != LUA_OK)
-		return false;
-	lua_pushstring(L, name);
-	/* an error indicates package exists */
-	bool ret = lua_pcall(L, 1, 1, 0) != LUA_OK || lua_toboolean(L, -1);
-	lua_pop(L, 1);
-	return ret;
-}
-
 static void *alloc_lua(void *ud, void *ptr, size_t osize, size_t nsize) {
 	if (nsize == 0) {
 		free(ptr);
@@ -2754,7 +2677,7 @@ static void *alloc_lua(void *ud, void *ptr, size_t osize, size_t nsize) {
 
 /***
  * Editor initialization completed.
- * This event is emitted immediately after `visrc.lua` has been sourced, but
+ * This event is emitted immediately after `vis/rs.lua` has been sourced, but
  * before any other events have occurred, in particular the command line arguments
  * have not yet been processed.
  *
@@ -2762,7 +2685,9 @@ static void *alloc_lua(void *ud, void *ptr, size_t osize, size_t nsize) {
  * @function init
  */
 void vis_lua_init(Vis *vis) {
+	char *s;
 	lua_State *L = lua_newstate(alloc_lua, vis);
+
 	if (!L)
 		return;
 	vis->lua = L;
@@ -2770,66 +2695,7 @@ void vis_lua_init(Vis *vis) {
 
 	luaL_openlibs(L);
 
-#if CONFIG_LPEG
-	extern int luaopen_lpeg(lua_State *L);
-	lua_getglobal(L, "package");
-	lua_getfield(L, -1, "preload");
-	lua_pushcfunction(L, luaopen_lpeg);
-	lua_setfield(L, -2, "lpeg");
-	lua_pop(L, 2);
-#endif
-
-	/* remove any relative paths from lua's default package.path */
-	vis_lua_path_strip(vis);
-
-	/* extends lua's package.path with:
-	 * - $VIS_PATH
-	 * - ./lua (relative path to the binary location)
-	 * - $XDG_CONFIG_HOME/vis (defaulting to $HOME/.config/vis)
-	 * - /etc/vis (for system-wide configuration provided by administrator)
-	 * - /usr/(local/)?share/vis (or whatever is specified during ./configure)
-	 * - package.path (standard lua search path)
-	 */
-	char path[PATH_MAX];
-
-	vis_lua_path_add(vis, VIS_PATH);
-
-	/* try to get users home directory */
-	const char *home = getenv("HOME");
-	if (!home || !*home) {
-		struct passwd *pw = getpwuid(getuid());
-		if (pw)
-			home = pw->pw_dir;
-	}
-
-	vis_lua_path_add(vis, "/etc/vis");
-
-	const char *xdg_config = getenv("XDG_CONFIG_HOME");
-	if (xdg_config) {
-		snprintf(path, sizeof path, "%s/vis", xdg_config);
-		vis_lua_path_add(vis, path);
-	} else if (home && *home) {
-		snprintf(path, sizeof path, "%s/.config/vis", home);
-		vis_lua_path_add(vis, path);
-	}
-
-	ssize_t len = readlink("/proc/self/exe", path, sizeof(path)-1);
-	if (len > 0) {
-		path[len] = '\0';
-		/* some idiotic dirname(3) implementations return pointers to statically
-		 * allocated memory, hence we use memmove to copy it back */
-		char *dir = dirname(path);
-		if (dir) {
-			size_t len = strlen(dir)+1;
-			if (len < sizeof(path) - sizeof("/lua")) {
-				memmove(path, dir, len);
-				strcat(path, "/lua");
-				vis_lua_path_add(vis, path);
-			}
-		}
-	}
-
-	vis_lua_path_add(vis, getenv("VIS_PATH"));
+	/* LOADING VIS TYPES INTO LUA */
 
 	/* table in registry to lookup object type, stores metatable -> type mapping */
 	lua_newtable(L);
@@ -2948,6 +2814,14 @@ void vis_lua_init(Vis *vis) {
 	lua_getglobal(L, "vis");
 	lua_getmetatable(L, -1);
 
+	lua_newtable(L);
+	for (int i = 0; i < vis->argc; i++) {
+		lua_pushnumber(L, i);
+		lua_pushstring(L, vis->argv[i]);
+		lua_rawset(L, -3);
+	}
+	lua_setfield(L, -2, "args");
+
 	lua_pushstring(L, VERSION);
 	lua_setfield(L, -2, "VERSION");
 
@@ -2972,14 +2846,39 @@ void vis_lua_init(Vis *vis) {
 
 	lua_setfield(L, -2, "modes");
 
-	if (!package_exist(vis, L, "visrc")) {
-		vis_info_show(vis, "WARNING: failed to load visrc.lua");
-	} else {
-		lua_getglobal(L, "require");
-		lua_pushstring(L, "visrc");
-		pcall(vis, L, 1, 0);
-		vis_lua_event_call(vis, "init");
+
+#if CONFIG_LPEG
+	extern int luaopen_lpeg(lua_State *L);
+	lua_getglobal(L, "package");
+	lua_getfield(L, -1, "preload");
+	lua_pushcfunction(L, luaopen_lpeg);
+	lua_setfield(L, -2, "lpeg");
+	lua_pop(L, 2);
+#endif
+
+	/* END OF LOADING VIS TYPES INTO LUA */
+
+	/*
+	 * EVIRONMENT: VIS_LUA_PATH
+	 *   VIS_LUA_PATH and becomes the package.path
+	 *   no string formatting takes place
+	 *
+	 * it is essentially Lua's enviroment variable interface:
+	 *   - if version is 5.4 & LUA_PATH_5_4 is set, use that
+	 *   otherwise use LUA_PATH if it's set
+	 */
+
+	if ((s = getenv("VIS_LUA_PATH")) != NULL) {
+		lua_getglobal(L, "package");
+		lua_pushstring(L, s);
+		lua_setfield(L, -2, "path");
 	}
+
+	luaL_loadbuffer(L, lua_internal, lua_internal_size, NULL);
+	pcall(vis, L, 0, 0);
+
+	vis_lua_event_call(vis, "init");
+	return;
 }
 
 /***
