@@ -1,36 +1,8 @@
 .POSIX:
-.SUFFIXES: .o .c .a .lua
 
 include config.mk
 
-OBJ=array.o \
-	$(REGEX).o \
-	main.o \
-	sam.o \
-	string.o \
-	libutf.o \
-	map.o \
-	libkey.o \
-	lua/internal.o \
-	text.o \
-	text-common.o \
-	text-io.o \
-	text-iterator.o \
-	text-motions.o \
-	text-objects.o \
-	text-util.o \
-	ui-terminal.o \
-	view.o \
-	vis.o \
-	vis-lua.o \
-	vis-marks.o \
-	vis-modes.o \
-	vis-motions.o \
-	vis-operators.o \
-	vis-prompt.o \
-	vis-registers.o \
-	vis-text-objects.o \
-	util.o
+.SUFFIXES: .o .c .a .lua
 
 ELF=vis vis-menu vis-digraph vis-keys
 EXECUTABLES=$(ELF) vis-clipboard vis-complete vis-open
@@ -55,6 +27,9 @@ all: $(ELF)
 .o.a:
 	$(AR) $(ARFLAGS) $@ $?
 
+.a:
+	$(CC) $(CFLAGS) $(CFLAGS_VIS) $(CFLAGS_EXTRA) $? -o $@ $(LDFLAGS) $(LDFLAGS_VIS)
+
 # TODO: simplify
 .lua.c:
 	$(LUAC) $< | \
@@ -63,25 +38,26 @@ all: $(ELF)
 		tr '/' '_' > $@
 
 config.mk:
-	@touch $@
-
-$(OBJ): config.mk config.h
+	./configure
 
 ui-terminal-keytab.h: keytab.in
 	./ui-terminal-keytab.sh > $@
 
-map.o: map.h
-array.o: array.h util.h
-string.o: string.h util.h
-libutf.o: libutf.h util.h
+map.c: map.h
+array.c: array.h util.h
+string.c: string.h util.h
+libutf.c: libutf.h util.h
 
-text.o: text.h text-internal.h array.h util.h text-util.o text-motions.o
+vis.h: vis-core.h ui.h view.h text-regex.h libutf.h array.h string.h
+
+text.o: text.h text-internal.h text-util.h text-motions.h array.h util.h
 text-common.o: text.h
-text-io.o: text-internal.h  util.h text.h text-util.h
+text-io.o: text-internal.h  text.h text-util.h util.h
 text-iterator.o: text.h util.h
-text-motions.o: text-motions.h text-objects.h util.h text-util.h
+text-motions.o: text-motions.h text-objects.h text-util.h util.h
 text-objects.o: text-objects.h text-motions.h text-util.h util.h
 $(REGEX).o: text-regex.h
+text.a: text.o text-common.o text-iterator.o text-util.o text-io.o $(REGEX).o text-objects.o text-motions.o
 
 
 sam.o: sam.h vis-core.h string.h text.h text-motions.h text-objects.h text-regex.h util.h vis-cmds.c
@@ -99,23 +75,42 @@ vis-prompt.o: vis-core.h text-motions.h text-objects.h text-util.h
 vis-text-objects.o: vis-core.h text-objects.h util.h
 util.o: util.h
 
+vis-keys.o: ui-terminal-keytab.h
+
 libkey.o: libkey.h map.o
 vis.o: vis.h text-util.h util.h vis-core.h ui.h text-motions.h text-objects.h sam.h ui-terminal.h # TODO ui.o
 main.o: config.h util.h array.h string.h libutf.h libkey.h text-util.h text-motions.h text-objects.h ui-terminal.h vis-lua.h vis.h
 
-vis.a: $(OBJ)
+vis-core.a: \
+		sam.o \
+		libutf.o \
+		map.o \
+		libkey.o \
+		lua/internal.o \
+		ui-terminal.o \
+		view.o \
+		vis.o \
+		vis-lua.o \
+		vis-marks.o \
+		vis-modes.o \
+		vis-motions.o \
+		vis-operators.o \
+		vis-text-objects.o \
+		util.o \
+		vis-prompt.o \
+		vis-registers.o \
+		main.o
+	$(AR) $(ARFLAGS) $@ $?
 
-vis: vis.a
-	$(CC) $(CFLAGS) $(CFLAGS_VIS) $(CFLAGS_EXTRA) vis.a -o $@ $(LDFLAGS) $(LDFLAGS_VIS)
 
-vis-keys: vis-keys.o map.o
-	$(CC) $(CFLAGS) $(CFLAGS_AUTO) $(CFLAGS_STD) $(CFLAGS_EXTRA) $< map.o $(LDFLAGS) $(LDFLAGS_STD) $(LDFLAGS_AUTO) -o $@
 
-vis-menu: vis-menu.c
-	$(CC) $(CFLAGS) $(CFLAGS_AUTO) $(CFLAGS_STD) $(CFLAGS_EXTRA) $< $(LDFLAGS) $(LDFLAGS_STD) $(LDFLAGS_AUTO) -o $@
+vis: array.o string.o text.a vis-core.a
+	$(CC) $(CFLAGS) $(CFLAGS_VIS) $(CFLAGS_EXTRA) vis-core.a text.a array.o string.o  -o $@ $(LDFLAGS) $(LDFLAGS_VIS)
 
-vis-digraph: vis-digraph.c
-	$(CC) $(CFLAGS) $(CFLAGS_AUTO) $(CFLAGS_STD) $(CFLAGS_EXTRA) $< $(LDFLAGS) $(LDFLAGS_STD) $(LDFLAGS_AUTO) -o $@
+
+vis-menu: vis-menu.a
+vis-keys.a: vis-keys.o map.o
+vis-keys: vis-keys.a
 
 vis-single-payload.inc: $(EXECUTABLES) lua/*
 	for e in $(ELF); do \
