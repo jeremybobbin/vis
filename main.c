@@ -26,47 +26,46 @@
 
 /** key bindings functions */
 
-static const char *nop(Vis *vis, const char *keys, const Arg *arg) {
-	return keys;
+static int nop(Vis *vis, const char *keys, const Arg *arg) {
+	return 0;
 }
 
-static const char *macro_record(Vis *vis, const char *keys, const Arg *arg) {
+static int macro_record(Vis *vis, const char *keys, const Arg *arg) {
 	if (!vis_macro_record_stop(vis)) {
 		if (!keys[0])
-			return NULL;
+			return VIS_KEY_AGAIN;
 		const char *next = vis_keys_next(keys);
 		if (next - keys > 1)
-			return next;
+			return 1;
 		enum VisRegister reg = vis_register_from(vis, keys[0]);
 		vis_macro_record(vis, reg);
-		keys++;
+		return 1;
 	}
-	vis_draw(vis);
-	return keys;
+	return 0;
 }
 
-static const char *macro_replay(Vis *vis, const char *keys, const Arg *arg) {
+static int macro_replay(Vis *vis, const char *keys, const Arg *arg) {
 	if (!keys[0])
-		return NULL;
+		return VIS_KEY_AGAIN;
 	const char *next = vis_keys_next(keys);
 	if (next - keys > 1)
-		return next;
+		return 1;
 	enum VisRegister reg = vis_register_from(vis, keys[0]);
 	vis_macro_replay(vis, reg);
-	return keys+1;
+	return 1;
 }
 
-static const char *suspend(Vis *vis, const char *keys, const Arg *arg) {
+static int suspend(Vis *vis, const char *keys, const Arg *arg) {
 	vis_suspend(vis);
-	return keys;
+	return 0;
 }
 
-static const char *repeat(Vis *vis, const char *keys, const Arg *arg) {
+static int repeat(Vis *vis, const char *keys, const Arg *arg) {
 	vis_repeat(vis);
-	return keys;
+	return 0;
 }
 
-static const char *wscroll(Vis *vis, const char *keys, const Arg *arg) {
+static int wscroll(Vis *vis, const char *keys, const Arg *arg) {
 	View *view = vis_view(vis);
 	int count = vis_count_get(vis);
 	switch (arg->i) {
@@ -92,10 +91,10 @@ static const char *wscroll(Vis *vis, const char *keys, const Arg *arg) {
 		break;
 	}
 	vis_count_set(vis, VIS_COUNT_UNKNOWN);
-	return keys;
+	return 0;
 }
 
-static const char *wslide(Vis *vis, const char *keys, const Arg *arg) {
+static int wslide(Vis *vis, const char *keys, const Arg *arg) {
 	View *view = vis_view(vis);
 	int count = vis_count_get(vis);
 	if (count == VIS_COUNT_UNKNOWN)
@@ -105,10 +104,10 @@ static const char *wslide(Vis *vis, const char *keys, const Arg *arg) {
 	else
 		view_slide_up(view, count);
 	vis_count_set(vis, VIS_COUNT_UNKNOWN);
-	return keys;
+	return 0;
 }
 
-static const char *selections_new(Vis *vis, const char *keys, const Arg *arg) {
+static int selections_new(Vis *vis, const char *keys, const Arg *arg) {
 	View *view = vis_view(vis);
 	bool anchored = view_selections_anchored(view_selections_primary_get(view));
 	VisCountIterator it = vis_count_iterator_get(vis, 1);
@@ -129,7 +128,7 @@ static const char *selections_new(Vis *vis, const char *keys, const Arg *arg) {
 		}
 
 		if (!sel)
-			return keys;
+			return 0;
 
 		size_t oldpos = view_cursors_pos(sel);
 		if (arg->i > 0)
@@ -151,10 +150,10 @@ static const char *selections_new(Vis *vis, const char *keys, const Arg *arg) {
 		}
 	}
 	vis_count_set(vis, VIS_COUNT_UNKNOWN);
-	return keys;
+	return 0;
 }
 
-static const char *selections_align(Vis *vis, const char *keys, const Arg *arg) {
+static int selections_align(Vis *vis, const char *keys, const Arg *arg) {
 	View *view = vis_view(vis);
 	Text *txt = vis_text(vis);
 	int mincol = INT_MAX;
@@ -170,10 +169,10 @@ static const char *selections_align(Vis *vis, const char *keys, const Arg *arg) 
 			view_cursors_to(s, col);
 		}
 	}
-	return keys;
+	return 0;
 }
 
-static const char *selections_align_indent(Vis *vis, const char *keys, const Arg *arg) {
+static int selections_align_indent(Vis *vis, const char *keys, const Arg *arg) {
 	View *view = vis_view(vis);
 	Text *txt = vis_text(vis);
 	bool left_align = arg->i < 0;
@@ -194,7 +193,7 @@ static const char *selections_align_indent(Vis *vis, const char *keys, const Arg
 		size_t len = maxcol - mincol;
 		char *buf = malloc(len+1);
 		if (!buf)
-			return keys;
+			return 0;
 		memset(buf, ' ', len);
 
 		for (Selection *s = view_selections_column(view, i); s; s = view_selections_column_next(s, i)) {
@@ -213,16 +212,16 @@ static const char *selections_align_indent(Vis *vis, const char *keys, const Arg
 	}
 
 	view_draw(view);
-	return keys;
+	return 0;
 }
 
-static const char *selections_clear(Vis *vis, const char *keys, const Arg *arg) {
+static int selections_clear(Vis *vis, const char *keys, const Arg *arg) {
 	View *view = vis_view(vis);
 	if (view_selections_count(view) > 1)
 		view_selections_dispose_all(view);
 	else
 		view_selection_clear(view_selections_primary_get(view));
-	return keys;
+	return 0;
 }
 
 static const Selection *selection_new_primary(View *view, Filerange *r) {
@@ -237,18 +236,18 @@ static const Selection *selection_new_primary(View *view, Filerange *r) {
 	return s;
 }
 
-static const char *selections_match_next_literal(Vis *vis, const char *keys, const Arg *arg) {
+static int selections_match_next_literal(Vis *vis, const char *keys, const Arg *arg) {
 	Text *txt = vis_text(vis);
 	View *view = vis_view(vis);
 	Selection *s = view_selections_primary_get(view);
 	Filerange sel = view_selections_get(s);
 	size_t len = text_range_size(&sel);
 	if (!len)
-		return keys;
+		return 0;
 
 	char *buf = text_bytes_alloc0(txt, sel.start, len);
 	if (!buf)
-		return keys;
+		return 0;
 
 	size_t start = text_find_next(txt, sel.end, buf);
 	Filerange match = text_range_new(start, start+len);
@@ -265,16 +264,16 @@ static const char *selections_match_next_literal(Vis *vis, const char *keys, con
 
 out:
 	free(buf);
-	return keys;
+	return 0;
 }
 
-static const char *selections_match_next(Vis *vis, const char *keys, const Arg *arg) {
+static int selections_match_next(Vis *vis, const char *keys, const Arg *arg) {
 	Text *txt = vis_text(vis);
 	View *view = vis_view(vis);
 	Selection *s = view_selections_primary_get(view);
 	Filerange sel = view_selections_get(s);
 	if (!text_range_valid(&sel))
-		return keys;
+		return 0;
 
 	static bool match_word;
 
@@ -288,7 +287,7 @@ static const char *selections_match_next(Vis *vis, const char *keys, const Arg *
 
 	char *buf = text_bytes_alloc0(txt, sel.start, text_range_size(&sel));
 	if (!buf)
-		return keys;
+		return 0;
 
 	Filerange word = text_object_word_find_next(txt, sel.end, buf);
 	if (text_range_valid(&word) && selection_new_primary(view, &word))
@@ -302,26 +301,26 @@ static const char *selections_match_next(Vis *vis, const char *keys, const Arg *
 
 out:
 	free(buf);
-	return keys;
+	return 0;
 }
 
-static const char *selections_match_skip(Vis *vis, const char *keys, const Arg *arg) {
+static int selections_match_skip(Vis *vis, const char *keys, const Arg *arg) {
 	View *view = vis_view(vis);
 	Selection *sel = view_selections_primary_get(view);
-	keys = selections_match_next(vis, keys, arg);
+	int n = selections_match_next(vis, keys, arg);
 	if (sel != view_selections_primary_get(view))
 		view_selections_dispose(sel);
-	return keys;
+	return n;
 }
 
-static const char *selections_remove(Vis *vis, const char *keys, const Arg *arg) {
+static int selections_remove(Vis *vis, const char *keys, const Arg *arg) {
 	View *view = vis_view(vis);
 	view_selections_dispose(view_selections_primary_get(view));
 	view_cursor_to(view, view_cursor_get(view));
-	return keys;
+	return 0;
 }
 
-static const char *selections_remove_column(Vis *vis, const char *keys, const Arg *arg) {
+static int selections_remove_column(Vis *vis, const char *keys, const Arg *arg) {
 	View *view = vis_view(vis);
 	int max = view_selections_column_count(view);
 	int column = vis_count_get_default(vis, arg->i) - 1;
@@ -329,7 +328,7 @@ static const char *selections_remove_column(Vis *vis, const char *keys, const Ar
 		column = max - 1;
 	if (view_selections_count(view) == 1) {
 		vis_keys_feed(vis, "<Escape>");
-		return keys;
+		return 0;
 	}
 
 	for (Selection *s = view_selections_column(view, column), *next; s; s = next) {
@@ -338,10 +337,10 @@ static const char *selections_remove_column(Vis *vis, const char *keys, const Ar
 	}
 
 	vis_count_set(vis, VIS_COUNT_UNKNOWN);
-	return keys;
+	return 0;
 }
 
-static const char *selections_remove_column_except(Vis *vis, const char *keys, const Arg *arg) {
+static int selections_remove_column_except(Vis *vis, const char *keys, const Arg *arg) {
 	View *view = vis_view(vis);
 	int max = view_selections_column_count(view);
 	int column = vis_count_get_default(vis, arg->i) - 1;
@@ -349,7 +348,7 @@ static const char *selections_remove_column_except(Vis *vis, const char *keys, c
 		column = max - 1;
 	if (view_selections_count(view) == 1) {
 		vis_redraw(vis);
-		return keys;
+		return 0;
 	}
 
 	Selection *sel = view_selections(view);
@@ -363,10 +362,10 @@ static const char *selections_remove_column_except(Vis *vis, const char *keys, c
 	}
 
 	vis_count_set(vis, VIS_COUNT_UNKNOWN);
-	return keys;
+	return 0;
 }
 
-static const char *selections_navigate(Vis *vis, const char *keys, const Arg *arg) {
+static int selections_navigate(Vis *vis, const char *keys, const Arg *arg) {
 	View *view = vis_view(vis);
 	if (view_selections_count(view) == 1)
 		return wscroll(vis, keys, arg);
@@ -388,10 +387,10 @@ static const char *selections_navigate(Vis *vis, const char *keys, const Arg *ar
 	}
 	view_selections_primary_set(s);
 	vis_count_set(vis, VIS_COUNT_UNKNOWN);
-	return keys;
+	return 0;
 }
 
-static const char *selections_rotate(Vis *vis, const char *keys, const Arg *arg) {
+static int selections_rotate(Vis *vis, const char *keys, const Arg *arg) {
 
 	typedef struct {
 		Selection *sel;
@@ -407,7 +406,7 @@ static const char *selections_rotate(Vis *vis, const char *keys, const Arg *arg)
 	int count = vis_count_get_default(vis, 1);
 	array_init_sized(&arr, sizeof(Rotate));
 	if (!array_reserve(&arr, selections))
-		return keys;
+		return 0;
 	size_t line = 0;
 
 	for (Selection *s = view_selections(view), *next; s; s = next) {
@@ -455,10 +454,10 @@ static const char *selections_rotate(Vis *vis, const char *keys, const Arg *arg)
 
 	array_release(&arr);
 	vis_count_set(vis, VIS_COUNT_UNKNOWN);
-	return keys;
+	return 0;
 }
 
-static const char *selections_trim(Vis *vis, const char *keys, const Arg *arg) {
+static int selections_trim(Vis *vis, const char *keys, const Arg *arg) {
 	Text *txt = vis_text(vis);
 	View *view = vis_view(vis);
 	for (Selection *s = view_selections(view), *next; s; s = next) {
@@ -476,7 +475,7 @@ static const char *selections_trim(Vis *vis, const char *keys, const Arg *arg) {
 			vis_mode_switch(vis, VIS_MODE_NORMAL);
 		}
 	}
-	return keys;
+	return 0;
 }
 
 static void selections_set(Vis *vis, View *view, Array *sel) {
@@ -487,7 +486,7 @@ static void selections_set(Vis *vis, View *view, Array *sel) {
 		view_selections_clear_all(view);
 }
 
-static const char *selections_save(Vis *vis, const char *keys, const Arg *arg) {
+static int selections_save(Vis *vis, const char *keys, const Arg *arg) {
 	Win *win = vis_window(vis);
 	View *view = vis_view(vis);
 	enum VisMark mark = vis_mark_used(vis);
@@ -495,10 +494,10 @@ static const char *selections_save(Vis *vis, const char *keys, const Arg *arg) {
 	vis_mark_set(win, mark, &sel);
 	array_release(&sel);
 	vis_cancel(vis);
-	return keys;
+	return 0;
 }
 
-static const char *selections_restore(Vis *vis, const char *keys, const Arg *arg) {
+static int selections_restore(Vis *vis, const char *keys, const Arg *arg) {
 	Win *win = vis_window(vis);
 	View *view = vis_view(vis);
 	enum VisMark mark = vis_mark_used(vis);
@@ -506,10 +505,10 @@ static const char *selections_restore(Vis *vis, const char *keys, const Arg *arg
 	selections_set(vis, view, &sel);
 	array_release(&sel);
 	vis_cancel(vis);
-	return keys;
+	return 0;
 }
 
-static const char *selections_union(Vis *vis, const char *keys, const Arg *arg) {
+static int selections_union(Vis *vis, const char *keys, const Arg *arg) {
 	Win *win = vis_window(vis);
 	View *view = vis_view(vis);
 	enum VisMark mark = vis_mark_used(vis);
@@ -558,7 +557,7 @@ static const char *selections_union(Vis *vis, const char *keys, const Arg *arg) 
 	array_release(&b);
 	array_release(&sel);
 
-	return keys;
+	return 0;
 }
 
 static void intersect(Array *ret, Array *a, Array *b) {
@@ -576,7 +575,7 @@ static void intersect(Array *ret, Array *a, Array *b) {
 	}
 }
 
-static const char *selections_intersect(Vis *vis, const char *keys, const Arg *arg) {
+static int selections_intersect(Vis *vis, const char *keys, const Arg *arg) {
 	Win *win = vis_window(vis);
 	View *view = vis_view(vis);
 	enum VisMark mark = vis_mark_used(vis);
@@ -593,7 +592,7 @@ static const char *selections_intersect(Vis *vis, const char *keys, const Arg *a
 	array_release(&b);
 	array_release(&sel);
 
-	return keys;
+	return 0;
 }
 
 static void complement(Array *ret, Array *a, Filerange *universe) {
@@ -612,7 +611,7 @@ static void complement(Array *ret, Array *a, Filerange *universe) {
 	}
 }
 
-static const char *selections_complement(Vis *vis, const char *keys, const Arg *arg) {
+static int selections_complement(Vis *vis, const char *keys, const Arg *arg) {
 	Text *txt = vis_text(vis);
 	View *view = vis_view(vis);
 	Filerange universe = text_object_entire(txt, 0);
@@ -625,10 +624,10 @@ static const char *selections_complement(Vis *vis, const char *keys, const Arg *
 	selections_set(vis, view, &sel);
 	array_release(&a);
 	array_release(&sel);
-	return keys;
+	return 0;
 }
 
-static const char *selections_minus(Vis *vis, const char *keys, const Arg *arg) {
+static int selections_minus(Vis *vis, const char *keys, const Arg *arg) {
 	Text *txt = vis_text(vis);
 	Win *win = vis_window(vis);
 	View *view = vis_view(vis);
@@ -652,67 +651,67 @@ static const char *selections_minus(Vis *vis, const char *keys, const Arg *arg) 
 	array_release(&b_complement);
 	array_release(&sel);
 
-	return keys;
+	return 0;
 }
 
-static const char *replace(Vis *vis, const char *keys, const Arg *arg) {
+static int replace(Vis *vis, const char *keys, const Arg *arg) {
 	if (!keys[0]) {
-		return NULL;
+		return VIS_KEY_AGAIN;
 	}
 
 	const char *next = vis_keys_next(keys);
 	if (!next)
-		return NULL;
+		return VIS_KEY_AGAIN;
 	char utf8[UTFmax+1];
 
 	if (keys[0] == '\n' || keys[0] == '\r' || strcmp(keys, "<Enter>") == 0) {
 		utf8[0] = '\n';
 		utf8[1] = '\0';
 	} else if (strcmp(keys, "<Escape>") == 0) {
-		return next;
+		return 1;
 	} else if (vis_keys_utf8(vis, keys, utf8) <= 0) {
-		return next;
+		return 1;
 	}
 
 	vis_operator(vis, VIS_OP_REPLACE, utf8);
 	if (vis_mode_get(vis) == VIS_MODE_OPERATOR_PENDING)
 		vis_motion(vis, VIS_MOVE_CHAR_NEXT);
-	return next;
+	return 1;
 }
 
-static const char *count(Vis *vis, const char *keys, const Arg *arg) {
+static int count(Vis *vis, const char *keys, const Arg *arg) {
 	int digit = arg->i;
 	int count = vis_count_get_default(vis, 0);
 	if (digit == 0 && count == 0)
 		vis_motion(vis, VIS_MOVE_LINE_BEGIN);
 	else
 		vis_count_set(vis, count * 10 + digit);
-	return keys;
+	return 0;
 }
 
-static const char *gotoline(Vis *vis, const char *keys, const Arg *arg) {
+static int gotoline(Vis *vis, const char *keys, const Arg *arg) {
 	if (vis_count_get(vis) != VIS_COUNT_UNKNOWN)
 		vis_motion(vis, VIS_MOVE_LINE);
 	else if (arg->i < 0)
 		vis_motion(vis, VIS_MOVE_FILE_BEGIN);
 	else
 		vis_motion(vis, VIS_MOVE_FILE_END);
-	return keys;
+	return 0;
 }
 
-static const char *operator(Vis *vis, const char *keys, const Arg *arg) {
+static int operator(Vis *vis, const char *keys, const Arg *arg) {
 	vis_operator(vis, arg->i);
-	return keys;
+	return 0;
 }
 
-static const char *movement_key(Vis *vis, const char *keys, const Arg *arg) {
+static int movement_key(Vis *vis, const char *keys, const Arg *arg) {
 	if (!keys[0]) {
-		return NULL;
+		return VIS_KEY_AGAIN;
 	}
 
 	const char *next = vis_keys_next(keys);
 	if (!next)
-		return NULL;
+		return VIS_KEY_AGAIN;
 
 	char utf8[UTFmax+1];
 	if (strcmp(keys, "<Enter>") == 0) {
@@ -724,48 +723,48 @@ static const char *movement_key(Vis *vis, const char *keys, const Arg *arg) {
 	}
 
 
-	return next;
+	return 1;
 }
 
-static const char *movement(Vis *vis, const char *keys, const Arg *arg) {
+static int movement(Vis *vis, const char *keys, const Arg *arg) {
 	vis_motion(vis, arg->i);
-	return keys;
+	return 0;
 }
 
-static const char *textobj(Vis *vis, const char *keys, const Arg *arg) {
+static int textobj(Vis *vis, const char *keys, const Arg *arg) {
 	vis_textobject(vis, arg->i);
-	return keys;
+	return 0;
 }
 
-static const char *selection_end(Vis *vis, const char *keys, const Arg *arg) {
+static int selection_end(Vis *vis, const char *keys, const Arg *arg) {
 	for (Selection *s = view_selections(vis_view(vis)); s; s = view_selections_next(s))
 		view_selections_flip(s);
-	return keys;
+	return 0;
 }
 
-static const char *reg(Vis *vis, const char *keys, const Arg *arg) {
+static int reg(Vis *vis, const char *keys, const Arg *arg) {
 	if (!keys[0])
-		return NULL;
+		return VIS_KEY_AGAIN;
 	const char *next = vis_keys_next(keys);
 	if (next - keys > 1)
-		return next;
+		return 1;
 	enum VisRegister reg = vis_register_from(vis, keys[0]);
 	vis_register(vis, reg);
-	return keys+1;
+	return 1;
 }
 
-static const char *mark(Vis *vis, const char *keys, const Arg *arg) {
+static int mark(Vis *vis, const char *keys, const Arg *arg) {
 	if (!keys[0])
-		return NULL;
+		return VIS_KEY_AGAIN;
 	const char *next = vis_keys_next(keys);
 	if (next - keys > 1)
-		return next;
+		return 1;
 	enum VisMark mark = vis_mark_from(vis, keys[0]);
 	vis_mark(vis, mark);
-	return keys+1;
+	return 1;
 }
 
-static const char *undo(Vis *vis, const char *keys, const Arg *arg) {
+static int undo(Vis *vis, const char *keys, const Arg *arg) {
 	size_t pos = text_undo(vis_text(vis));
 	if (pos != EPOS) {
 		View *view = vis_view(vis);
@@ -774,10 +773,10 @@ static const char *undo(Vis *vis, const char *keys, const Arg *arg) {
 		/* redraw all windows in case some display the same file */
 		vis_draw(vis);
 	}
-	return keys;
+	return 0;
 }
 
-static const char *redo(Vis *vis, const char *keys, const Arg *arg) {
+static int redo(Vis *vis, const char *keys, const Arg *arg) {
 	size_t pos = text_redo(vis_text(vis));
 	if (pos != EPOS) {
 		View *view = vis_view(vis);
@@ -786,10 +785,10 @@ static const char *redo(Vis *vis, const char *keys, const Arg *arg) {
 		/* redraw all windows in case some display the same file */
 		vis_draw(vis);
 	}
-	return keys;
+	return 0;
 }
 
-static const char *earlier(Vis *vis, const char *keys, const Arg *arg) {
+static int earlier(Vis *vis, const char *keys, const Arg *arg) {
 	size_t pos = EPOS;
 	VisCountIterator it = vis_count_iterator_get(vis, 1);
 	while (vis_count_iterator_next(&it))
@@ -799,10 +798,10 @@ static const char *earlier(Vis *vis, const char *keys, const Arg *arg) {
 		/* redraw all windows in case some display the same file */
 		vis_draw(vis);
 	}
-	return keys;
+	return 0;
 }
 
-static const char *later(Vis *vis, const char *keys, const Arg *arg) {
+static int later(Vis *vis, const char *keys, const Arg *arg) {
 	size_t pos = EPOS;
 	VisCountIterator it = vis_count_iterator_get(vis, 1);
 	while (vis_count_iterator_next(&it))
@@ -812,42 +811,42 @@ static const char *later(Vis *vis, const char *keys, const Arg *arg) {
 		/* redraw all windows in case some display the same file */
 		vis_draw(vis);
 	}
-	return keys;
+	return 0;
 }
 
-static const char *delete(Vis *vis, const char *keys, const Arg *arg) {
+static int delete(Vis *vis, const char *keys, const Arg *arg) {
 	vis_operator(vis, VIS_OP_DELETE);
 	vis_motion(vis, arg->i);
-	return keys;
+	return 0;
 }
 
-static const char *insert_register(Vis *vis, const char *keys, const Arg *arg) {
+static int insert_register(Vis *vis, const char *keys, const Arg *arg) {
 	if (!keys[0])
-		return NULL;
+		return VIS_KEY_AGAIN;
 	const char *next = vis_keys_next(keys);
 	if (next - keys > 1)
-		return next;
+		return 1;
 	enum VisRegister reg = vis_register_from(vis, keys[0]);
 	if (reg != VIS_REG_INVALID) {
 		vis_register(vis, reg);
 		vis_operator(vis, VIS_OP_PUT_BEFORE_END);
 	}
-	return keys+1;
+	return 1;
 }
 
-static const char *prompt_show(Vis *vis, const char *keys, const Arg *arg) {
+static int prompt_show(Vis *vis, const char *keys, const Arg *arg) {
 	vis_prompt_show(vis, arg->s);
-	return keys;
+	return 0;
 }
 
-static const char *insert_verbatim(Vis *vis, const char *keys, const Arg *arg) {
+static int insert_verbatim(Vis *vis, const char *keys, const Arg *arg) {
 	Rune rune = 0;
 	char buf[512], type = keys[0];
 	const char *data = NULL;
-	int len = 0, count = 0, base = 0;
+	int n = 0, count = 0, base = 0;
 	switch (type) {
 	case '\0':
-		return NULL;
+		return VIS_KEY_AGAIN;
 	case 'o':
 	case 'O':
 		count = 3;
@@ -875,38 +874,39 @@ static const char *insert_verbatim(Vis *vis, const char *keys, const Arg *arg) {
 	}
 
 	if (base) {
-		for (keys++; keys[0] && count > 0; keys++, count--) {
+		keys++;
+		for (n = 0; keys[n] && n < count; n++) {
 			int v = 0;
-			if (base == 8 && '0' <= keys[0] && keys[0] <= '7') {
-				v = keys[0] - '0';
-			} else if ((base == 10 || base == 16) && '0' <= keys[0] && keys[0] <= '9') {
-				v = keys[0] - '0';
-			} else if (base == 16 && 'a' <= keys[0] && keys[0] <= 'f') {
-				v = 10 + keys[0] - 'a';
-			} else if (base == 16 && 'A' <= keys[0] && keys[0] <= 'F') {
-				v = 10 + keys[0] - 'A';
+			if (base == 8 && '0' <= keys[n] && keys[n] <= '7') {
+				v = keys[n] - '0';
+			} else if ((base == 10 || base == 16) && '0' <= keys[n] && keys[n] <= '9') {
+				v = keys[n] - '0';
+			} else if (base == 16 && 'a' <= keys[n] && keys[n] <= 'f') {
+				v = 10 + keys[n] - 'a';
+			} else if (base == 16 && 'A' <= keys[n] && keys[n] <= 'F') {
+				v = 10 + keys[n] - 'A';
 			} else {
-				count = 0;
+				count = n;
 				break;
 			}
 			rune = rune * base + v;
 		}
 
-		if (count > 0)
-			return NULL;
+		if (n < count)
+			return VIS_KEY_AGAIN;
 		if (type == 'u' || type == 'U') {
-			len = runetochar(buf, &rune);
+			n = runetochar(buf, &rune);
 		} else {
 			buf[0] = rune;
-			len = 1;
+			n = 1;
 		}
 
 		data = buf;
 	} else {
 		const char *next = vis_keys_next(keys);
 		if (!next)
-			return NULL;
-		if ((len = vis_keys_utf8(vis, keys, buf)) > 0) {
+			return VIS_KEY_AGAIN;
+		if ((n = vis_keys_utf8(vis, keys, buf)) > 0) {
 			if (buf[0] == '\n') buf[0] = '\r';
 			data = buf;
 		} else {
@@ -915,22 +915,22 @@ static const char *insert_verbatim(Vis *vis, const char *keys, const Arg *arg) {
 		keys = next;
 	}
 
-	if (len > 0)
-		vis_insert_key(vis, data, len);
-	return keys;
+	if (n)
+		vis_insert_key(vis, data, n);
+	return 1+count;
 }
 
-static const char *call(Vis *vis, const char *keys, const Arg *arg) {
+static int call(Vis *vis, const char *keys, const Arg *arg) {
 	arg->f(vis);
-	return keys;
+	return 0;
 }
 
-static const char *window(Vis *vis, const char *keys, const Arg *arg) {
+static int window(Vis *vis, const char *keys, const Arg *arg) {
 	arg->w(vis_view(vis));
-	return keys;
+	return 0;
 }
 
-static const char *openline(Vis *vis, const char *keys, const Arg *arg) {
+static int openline(Vis *vis, const char *keys, const Arg *arg) {
 	vis_operator(vis, VIS_OP_MODESWITCH, VIS_MODE_INSERT);
 	if (arg->i > 0) {
 		vis_motion(vis, VIS_MOVE_LINE_END);
@@ -945,10 +945,10 @@ static const char *openline(Vis *vis, const char *keys, const Arg *arg) {
 		}
 		vis_keys_feed(vis, "<Enter><vis-motion-line-up>");
 	}
-	return keys;
+	return 0;
 }
 
-static const char *join(Vis *vis, const char *keys, const Arg *arg) {
+static int join(Vis *vis, const char *keys, const Arg *arg) {
 	bool normal = (vis_mode_get(vis) == VIS_MODE_NORMAL);
 	vis_operator(vis, VIS_OP_JOIN, arg->s);
 	if (normal) {
@@ -957,50 +957,50 @@ static const char *join(Vis *vis, const char *keys, const Arg *arg) {
 			vis_count_set(vis, count-1);
 		vis_motion(vis, VIS_MOVE_LINE_NEXT);
 	}
-	return keys;
+	return 0;
 }
 
-static const char *normalmode_escape(Vis *vis, const char *keys, const Arg *arg) {
+static int normalmode_escape(Vis *vis, const char *keys, const Arg *arg) {
 	if (vis_count_get(vis) == VIS_COUNT_UNKNOWN)
 		selections_clear(vis, keys, arg);
 	else
 		vis_count_set(vis, VIS_COUNT_UNKNOWN);
-	return keys;
+	return 0;
 }
 
-static const char *visualmode_escape(Vis *vis, const char *keys, const Arg *arg) {
+static int visualmode_escape(Vis *vis, const char *keys, const Arg *arg) {
 	if (vis_count_get(vis) == VIS_COUNT_UNKNOWN)
 		vis_mode_switch(vis, VIS_MODE_NORMAL);
 	else
 		vis_count_set(vis, VIS_COUNT_UNKNOWN);
-	return keys;
+	return 0;
 }
 
-static const char *switchmode(Vis *vis, const char *keys, const Arg *arg) {
+static int switchmode(Vis *vis, const char *keys, const Arg *arg) {
 	vis_mode_switch(vis, arg->i);
-	return keys;
+	return 0;
 }
 
-static const char *insertmode(Vis *vis, const char *keys, const Arg *arg) {
+static int insertmode(Vis *vis, const char *keys, const Arg *arg) {
 	vis_operator(vis, VIS_OP_MODESWITCH, VIS_MODE_INSERT);
 	vis_motion(vis, arg->i);
-	return keys;
+	return 0;
 }
 
-static const char *replacemode(Vis *vis, const char *keys, const Arg *arg) {
+static int replacemode(Vis *vis, const char *keys, const Arg *arg) {
 	vis_operator(vis, VIS_OP_MODESWITCH, VIS_MODE_REPLACE);
 	vis_motion(vis, arg->i);
-	return keys;
+	return 0;
 }
 
-static const char *unicode_info(Vis *vis, const char *keys, const Arg *arg) {
+static int unicode_info(Vis *vis, const char *keys, const Arg *arg) {
 	View *view = vis_view(vis);
 	Text *txt = vis_text(vis);
 	size_t start = view_cursor_get(view);
 	size_t end = text_char_next(txt, start);
 	char *grapheme = text_bytes_alloc0(txt, start, end-start), *codepoint = grapheme;
 	if (!grapheme)
-		return keys;
+		return 0;
 	String info;
 	string_init(&info);
 	mbstate_t ps = { 0 };
@@ -1033,25 +1033,25 @@ static const char *unicode_info(Vis *vis, const char *keys, const Arg *arg) {
 err:
 	free(grapheme);
 	string_release(&info);
-	return keys;
+	return 0;
 }
 
-static const char *percent(Vis *vis, const char *keys, const Arg *arg) {
+static int percent(Vis *vis, const char *keys, const Arg *arg) {
 	if (vis_count_get(vis) == VIS_COUNT_UNKNOWN)
 		vis_motion(vis, VIS_MOVE_BRACKET_MATCH);
 	else
 		vis_motion(vis, VIS_MOVE_PERCENT);
-	return keys;
+	return 0;
 }
 
-static const char *jumplist(Vis *vis, const char *keys, const Arg *arg) {
+static int jumplist(Vis *vis, const char *keys, const Arg *arg) {
 	if (arg->i < 0)
 		vis_jumplist_prev(vis);
 	else if (arg->i > 0)
 		vis_jumplist_next(vis);
 	else
 		vis_jumplist_save(vis);
-	return keys;
+	return 0;
 }
 
 #include "config.h"

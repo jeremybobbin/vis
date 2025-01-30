@@ -543,24 +543,24 @@ static Filerange getrange(lua_State *L, int index) {
 	return range;
 }
 
-static const char *keymapping(Vis *vis, const char *keys, const Arg *arg) {
+static int keymapping(Vis *vis, const char *keys, const Arg *arg) {
 	lua_State *L = vis->lua;
 	if (!func_ref_get(L, arg->v))
-		return keys;
+		return 0;
 	lua_pushstring(L, keys);
 	if (pcall(vis, L, 1, 1) != 0)
-		return keys;
+		return 0;
 	if (lua_type(L, -1) != LUA_TNUMBER)
-		return keys; /* invalid or no return value, assume zero */
+		return 0; /* invalid or no return value, assume zero */
 	lua_Number number = lua_tonumber(L, -1);
 	lua_Integer integer = lua_tointeger(L, -1);
 	if (number != integer)
-		return keys;
+		return 0;
 	if (integer < 0)
-		return NULL; /* need more input */
+		return VIS_KEY_AGAIN; /* need more input */
 	size_t len = integer;
 	size_t max = strlen(keys);
-	return (len <= max) ? keys+len : keys;
+	return (len <= max) ? len : 0;
 }
 
 /***

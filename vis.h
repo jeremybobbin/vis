@@ -66,6 +66,11 @@ typedef union {
 	void (*f)(Vis*);
 } Arg;
 
+typedef enum {
+	VIS_KEY_AGAIN = -1,
+} VisKeyError;
+
+
 /**
  * Key action handling function.
  * @param keys Input queue content *after* the binding which invoked this function.
@@ -80,7 +85,7 @@ typedef union {
  * @endrst
  * @ingroup vis_action
  */
-typedef const char *KeyActionFunction(Vis*, const char *keys, const Arg*);
+typedef int KeyActionFunction(Vis*, const char *keys, const Arg*);
 
 /** Key action definition. */
 typedef struct {

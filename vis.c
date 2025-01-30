@@ -1146,6 +1146,7 @@ static void vis_keys_process(Vis *vis, size_t pos) {
 	char *keys = buf->data + pos, *start = keys, *cur = keys, *end = keys, *binding_end = keys;;
 	bool prefix = false;
 	KeyBinding *binding = NULL;
+	int n;
 
 	while (cur && *cur) {
 
@@ -1193,10 +1194,14 @@ static void vis_keys_process(Vis *vis, size_t pos) {
 				strcpy(vis->key_prev, vis->key_current);
 				strncpy(vis->key_current, start, len);
 				vis->key_current[len] = '\0';
-				end = (char*)binding->action->func(vis, binding_end, &binding->action->arg);
-				if (!end) {
+				n = binding->action->func(vis, binding_end, &binding->action->arg);
+				if (n < 0) {
 					end = start;
 					break;
+				}
+				end = binding_end;
+				for (int i = 0; i < n; i++) {
+					end = (char*)vis_keys_next(end);
 				}
 				start = cur = end;
 			} else if (binding->alias) {
@@ -1216,10 +1221,13 @@ static void vis_keys_process(Vis *vis, size_t pos) {
 					strcpy(vis->key_prev, vis->key_current);
 					strncpy(vis->key_current, start, len);
 					vis->key_current[len] = '\0';
-					end = (char*)action->func(vis, end, &action->arg);
-					if (!end) {
+					n = action->func(vis, end, &action->arg);
+					if (n < 0) {
 						end = start;
 						break;
+					}
+					for (int i = 0; i < n; i++) {
+						end = (char*)vis_keys_next(end);
 					}
 				}
 			}

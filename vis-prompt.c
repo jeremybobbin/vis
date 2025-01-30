@@ -48,7 +48,7 @@ static void prompt_restore(Win *win) {
 	vis->mode = win->parent_mode;
 }
 
-static const char *prompt_enter(Vis *vis, const char *keys, const Arg *arg) {
+static int prompt_enter(Vis *vis, const char *keys, const Arg *arg) {
 	Win *prompt = vis->win;
 	View *view = prompt->view;
 	Text *txt = prompt->file->text;
@@ -88,7 +88,7 @@ static const char *prompt_enter(Vis *vis, const char *keys, const Arg *arg) {
 		prompt_restore(prompt);
 		prompt_hide(prompt);
 		free(cmd);
-		return keys;
+		return 0;
 	}
 
 	size_t len = strlen(cmd);
@@ -110,10 +110,10 @@ static const char *prompt_enter(Vis *vis, const char *keys, const Arg *arg) {
 	}
 	free(cmd);
 	vis_draw(vis);
-	return keys;
+	return 0;
 }
 
-static const char *prompt_esc(Vis *vis, const char *keys, const Arg *arg) {
+static int prompt_esc(Vis *vis, const char *keys, const Arg *arg) {
 	Win *prompt = vis->win;
 	if (view_selections_count(prompt->view) > 1) {
 		view_selections_dispose_all(prompt->view);
@@ -121,14 +121,14 @@ static const char *prompt_esc(Vis *vis, const char *keys, const Arg *arg) {
 		prompt_restore(prompt);
 		prompt_hide(prompt);
 	}
-	return keys;
+	return 0;
 }
 
-static const char *prompt_up(Vis *vis, const char *keys, const Arg *arg) {
+static int prompt_up(Vis *vis, const char *keys, const Arg *arg) {
 	vis_motion(vis, VIS_MOVE_LINE_UP);
 	vis_window_mode_unmap(vis->win, VIS_MODE_INSERT, "<Up>");
 	view_options_set(vis->win->view, UI_OPTION_SYMBOL_EOF);
-	return keys;
+	return 0;
 }
 
 static const KeyBinding prompt_enter_binding = {
