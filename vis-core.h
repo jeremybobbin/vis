@@ -2,7 +2,6 @@
 #define VIS_CORE_H
 
 #include <setjmp.h>
-#include "vis.h"
 #include "sam.h"
 #include "vis-lua.h"
 #include "text.h"

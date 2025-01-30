@@ -3,7 +3,6 @@
 
 #include <stddef.h>
 #include <stdbool.h>
-#include "text.h"
 
 /**
  * @file

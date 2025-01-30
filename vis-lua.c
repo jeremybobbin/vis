@@ -15,16 +15,10 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
-#include <limits.h>
-#include <unistd.h>
-#include <libgen.h>
-#include <sys/types.h>
-#include <pwd.h>
 
 #include "vis-lua.h"
 #include "vis-core.h"
 #include "text-motions.h"
-#include "util.h"
 
 #define VIS_LUA_TYPE_VIS "vis"
 #define VIS_LUA_TYPE_FILE "file"

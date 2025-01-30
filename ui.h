@@ -3,9 +3,7 @@
 
 #include <stdbool.h>
 #include <stdarg.h>
-#include <stdlib.h>
 #include <stdint.h>
-#include "map.h"
 
 /* enable large file optimization for files larger than: */
 #define UI_LARGE_FILE_SIZE (1 << 25)
@@ -81,8 +79,6 @@ typedef struct {
 } CellStyle;
 
 #include "vis.h"
-#include "text.h"
-#include "view.h"
 
 struct Ui {
 	bool (*init)(Ui*, Vis*);
