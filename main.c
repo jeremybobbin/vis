@@ -24,122 +24,6 @@
 #define PAGE      INT_MAX
 #define PAGE_HALF (INT_MAX-1)
 
-/** functions to be called from keybindings */
-/* ignore key, do nothing */
-static const char *nop(Vis*, const char *keys, const Arg *arg);
-/* record/replay macro indicated by keys */
-static const char *macro_record(Vis*, const char *keys, const Arg *arg);
-static const char *macro_replay(Vis*, const char *keys, const Arg *arg);
-/* temporarily suspend the editor and return to the shell, type 'fg' to get back */
-static const char *suspend(Vis*, const char *keys, const Arg *arg);
-/* reset count if set, otherwise remove all but the primary selection */
-static const char *normalmode_escape(Vis*, const char *keys, const Arg *arg);
-/* reset count if set, otherwise switch to normal mode */
-static const char *visualmode_escape(Vis*, const char *keys, const Arg *arg);
-/* switch to mode indicated by arg->i */
-static const char *switchmode(Vis*, const char *keys, const Arg *arg);
-/* switch to insert mode after performing movement indicated by arg->i */
-static const char *insertmode(Vis*, const char *keys, const Arg *arg);
-/* switch to replace mode after performing movement indicated by arg->i */
-static const char *replacemode(Vis*, const char *keys, const Arg *arg);
-/* add a new line either before or after the one where the cursor currently is */
-static const char *openline(Vis*, const char *keys, const Arg *arg);
-/* join lines from current cursor position to movement indicated by arg */
-static const char *join(Vis*, const char *keys, const Arg *arg);
-/* perform last action i.e. action_prev again */
-static const char *repeat(Vis*, const char *keys, const Arg *arg);
-/* replace character at cursor with one from keys */
-static const char *replace(Vis*, const char *keys, const Arg *arg);
-/* create a new cursor on the previous (arg->i < 0) or next (arg->i > 0) line */
-static const char *selections_new(Vis*, const char *keys, const Arg *arg);
-/* try to align all selections on the same column */
-static const char *selections_align(Vis*, const char *keys, const Arg *arg);
-/* try to align all selections by inserting the correct amount of white spaces */
-static const char *selections_align_indent(Vis*, const char *keys, const Arg *arg);
-/* remove all but the primary cursor and their selections */
-static const char *selections_clear(Vis*, const char *keys, const Arg *arg);
-/* remove the least recently added selection */
-static const char *selections_remove(Vis*, const char *keys, const Arg *arg);
-/* remove count (or arg->i)-th selection column */
-static const char *selections_remove_column(Vis*, const char *keys, const Arg *arg);
-/* remove all but the count (or arg->i)-th selection column */
-static const char *selections_remove_column_except(Vis*, const char *keys, const Arg *arg);
-/* move to the previous (arg->i < 0) or next (arg->i > 0) selection */
-static const char *selections_navigate(Vis*, const char *keys, const Arg *arg);
-/* select the next region matching the current selection */
-static const char *selections_match_next(Vis*, const char *keys, const Arg *arg);
-/* clear current selection but select next match */
-static const char *selections_match_skip(Vis*, const char *keys, const Arg *arg);
-/* rotate selection content count times left (arg->i < 0) or right (arg->i > 0) */
-static const char *selections_rotate(Vis*, const char *keys, const Arg *arg);
-/* remove leading and trailing white spaces from selections */
-static const char *selections_trim(Vis*, const char *keys, const Arg *arg);
-/* save active selections to mark */
-static const char *selections_save(Vis*, const char *keys, const Arg *arg);
-/* restore selections from mark */
-static const char *selections_restore(Vis*, const char *keys, const Arg *arg);
-/* union selections from mark */
-static const char *selections_union(Vis*, const char *keys, const Arg *arg);
-/* intersect selections from mark */
-static const char *selections_intersect(Vis*, const char *keys, const Arg *arg);
-/* perform complement of current active selections */
-static const char *selections_complement(Vis*, const char *keys, const Arg *arg);
-/* subtract selections from mark */
-static const char *selections_minus(Vis*, const char *keys, const Arg *arg);
-/* adjust current used count according to keys */
-static const char *count(Vis*, const char *keys, const Arg *arg);
-/* move to the count-th line or if not given either to the first (arg->i < 0)
- *  or last (arg->i > 0) line of file */
-static const char *gotoline(Vis*, const char *keys, const Arg *arg);
-/* make the current action use the operator indicated by arg->i */
-static const char *operator(Vis*, const char *keys, const Arg *arg);
-/* blocks to read a key and performs movement indicated by arg->i which
- * should be one of VIS_MOVE_{TO,TILL}_{,LINE}_{RIGHT,LEFT}*/
-static const char *movement_key(Vis*, const char *keys, const Arg *arg);
-/* perform the movement as indicated by arg->i */
-static const char *movement(Vis*, const char *keys, const Arg *arg);
-/* let the current operator affect the range indicated by the text object arg->i */
-static const char *textobj(Vis*, const char *keys, const Arg *arg);
-/* move to the other end of selected text */
-static const char *selection_end(Vis*, const char *keys, const Arg *arg);
-/* use register indicated by keys for the current operator */
-static const char *reg(Vis*, const char *keys, const Arg *arg);
-/* use mark indicated by keys for the current action */
-static const char *mark(Vis*, const char *keys, const Arg *arg);
-/* {un,re}do last action, redraw window */
-static const char *undo(Vis*, const char *keys, const Arg *arg);
-static const char *redo(Vis*, const char *keys, const Arg *arg);
-/* earlier, later action chronologically, redraw window */
-static const char *earlier(Vis*, const char *keys, const Arg *arg);
-static const char *later(Vis*, const char *keys, const Arg *arg);
-/* delete from the current cursor position to the end of
- * movement as indicated by arg->i */
-static const char *delete(Vis*, const char *keys, const Arg *arg);
-/* insert register content indicated by keys at current cursor position */
-static const char *insert_register(Vis*, const char *keys, const Arg *arg);
-/* show a user prompt to get input with title arg->s */
-static const char *prompt_show(Vis*, const char *keys, const Arg *arg);
-/* blocks to read 3 consecutive digits and inserts the corresponding byte value */
-static const char *insert_verbatim(Vis*, const char *keys, const Arg *arg);
-/* scroll window content according to arg->i which can be either PAGE, PAGE_HALF,
- * or an arbitrary number of lines. a multiplier overrides what is given in arg->i.
- * negative values scroll back, positive forward. */
-static const char *wscroll(Vis*, const char *keys, const Arg *arg);
-/* similar to scroll, but do only move window content not cursor position */
-static const char *wslide(Vis*, const char *keys, const Arg *arg);
-/* call editor function as indicated by arg->f */
-static const char *call(Vis*, const char *keys, const Arg *arg);
-/* call window function as indicated by arg->w */
-static const char *window(Vis*, const char *keys, const Arg *arg);
-/* show info about Unicode character at cursor position */
-static const char *unicode_info(Vis*, const char *keys, const Arg *arg);
-/* either go to count % of file or to matching item */
-static const char *percent(Vis*, const char *keys, const Arg *arg);
-/* navigate jumplist next (arg->i > 0), prev (arg->i < 0), save (arg->i = 0) */
-static const char *jumplist(Vis*, const char *keys, const Arg *arg);
-
-#include "config.h"
-
 /** key bindings functions */
 
 static const char *nop(Vis *vis, const char *keys, const Arg *arg) {
@@ -179,6 +63,48 @@ static const char *suspend(Vis *vis, const char *keys, const Arg *arg) {
 
 static const char *repeat(Vis *vis, const char *keys, const Arg *arg) {
 	vis_repeat(vis);
+	return keys;
+}
+
+static const char *wscroll(Vis *vis, const char *keys, const Arg *arg) {
+	View *view = vis_view(vis);
+	int count = vis_count_get(vis);
+	switch (arg->i) {
+	case -PAGE:
+		view_scroll_page_up(view);
+		break;
+	case +PAGE:
+		view_scroll_page_down(view);
+		break;
+	case -PAGE_HALF:
+		view_scroll_halfpage_up(view);
+		break;
+	case +PAGE_HALF:
+		view_scroll_halfpage_down(view);
+		break;
+	default:
+		if (count == VIS_COUNT_UNKNOWN)
+			count = arg->i < 0 ? -arg->i : arg->i;
+		if (arg->i < 0)
+			view_scroll_up(view, count);
+		else
+			view_scroll_down(view, count);
+		break;
+	}
+	vis_count_set(vis, VIS_COUNT_UNKNOWN);
+	return keys;
+}
+
+static const char *wslide(Vis *vis, const char *keys, const Arg *arg) {
+	View *view = vis_view(vis);
+	int count = vis_count_get(vis);
+	if (count == VIS_COUNT_UNKNOWN)
+		count = arg->i < 0 ? -arg->i : arg->i;
+	if (arg->i >= 0)
+		view_slide_down(view, count);
+	else
+		view_slide_up(view, count);
+	vis_count_set(vis, VIS_COUNT_UNKNOWN);
 	return keys;
 }
 
@@ -994,48 +920,6 @@ static const char *insert_verbatim(Vis *vis, const char *keys, const Arg *arg) {
 	return keys;
 }
 
-static const char *wscroll(Vis *vis, const char *keys, const Arg *arg) {
-	View *view = vis_view(vis);
-	int count = vis_count_get(vis);
-	switch (arg->i) {
-	case -PAGE:
-		view_scroll_page_up(view);
-		break;
-	case +PAGE:
-		view_scroll_page_down(view);
-		break;
-	case -PAGE_HALF:
-		view_scroll_halfpage_up(view);
-		break;
-	case +PAGE_HALF:
-		view_scroll_halfpage_down(view);
-		break;
-	default:
-		if (count == VIS_COUNT_UNKNOWN)
-			count = arg->i < 0 ? -arg->i : arg->i;
-		if (arg->i < 0)
-			view_scroll_up(view, count);
-		else
-			view_scroll_down(view, count);
-		break;
-	}
-	vis_count_set(vis, VIS_COUNT_UNKNOWN);
-	return keys;
-}
-
-static const char *wslide(Vis *vis, const char *keys, const Arg *arg) {
-	View *view = vis_view(vis);
-	int count = vis_count_get(vis);
-	if (count == VIS_COUNT_UNKNOWN)
-		count = arg->i < 0 ? -arg->i : arg->i;
-	if (arg->i >= 0)
-		view_slide_down(view, count);
-	else
-		view_slide_up(view, count);
-	vis_count_set(vis, VIS_COUNT_UNKNOWN);
-	return keys;
-}
-
 static const char *call(Vis *vis, const char *keys, const Arg *arg) {
 	arg->f(vis);
 	return keys;
@@ -1169,6 +1053,8 @@ static const char *jumplist(Vis *vis, const char *keys, const Arg *arg) {
 		vis_jumplist_save(vis);
 	return keys;
 }
+
+#include "config.h"
 
 static Vis *vis;
 
