@@ -658,9 +658,7 @@ void vis_window_close(Win *win) {
 	vis_draw(vis);
 }
 
-void signal_handler(int signum, siginfo_t *siginfo, void *context);
-
-Vis *vis_new(Ui *ui, VisEvent *event, int argc, char **argv) {
+Vis *vis_new(Ui *ui, VisEvent *event, int argc, char **argv, void* signal_handler) {
 	if (!ui)
 		return NULL;
 	Vis *vis = calloc(1, sizeof(Vis));

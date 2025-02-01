@@ -1081,7 +1081,7 @@ int main(int argc, char *argv[]) {
 	};
 
 	Ui *ui = ui_term_new();
-	vis = vis_new(ui, &event, argc, argv);
+	vis = vis_new(ui, &event, argc, argv, (void*)signal_handler);
 	if (!vis)
 		return EXIT_FAILURE;
 
