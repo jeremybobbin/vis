@@ -14,6 +14,7 @@ vis.events.subscribe(vis.events.WIN_STATUS, function(win)
 	local right_parts = {}
 	local file = win.file
 	local selection = win.selection
+	local range = selection.range
 
 	local mode = modes[vis.mode]
 	if mode ~= '' and vis.win == win then
@@ -29,6 +30,8 @@ vis.events.subscribe(vis.events.WIN_STATUS, function(win)
 		table.insert(right_parts, keys)
 	elseif count then
 		table.insert(right_parts, count)
+	elseif range and range.finish > range.start+1 then
+		table.insert(right_parts, range.finish - range.start)
 	end
 
 	if #win.selections > 1 then
