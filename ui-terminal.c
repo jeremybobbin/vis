@@ -52,6 +52,7 @@ typedef struct {
 	bool use_keymap;
 	struct sigaction sa[2];
 	bool suspended;
+	bool minimized;
 } UiTerm;
 
 struct UiTermWin {
@@ -126,7 +127,7 @@ static bool color_fromstring(UiTerm *ui, CellColor *color, const char *s)
 	static const struct {
 		const char *name;
 		CellColor color;
-	} color_names[] = {
+	} colors[] = {
 		{ "black",   CELL_COLOR_BLACK   },
 		{ "red",     CELL_COLOR_RED     },
 		{ "green",   CELL_COLOR_GREEN   },
@@ -138,9 +139,9 @@ static bool color_fromstring(UiTerm *ui, CellColor *color, const char *s)
 		{ "default", CELL_COLOR_DEFAULT },
 	};
 
-	for (size_t i = 0; i < LENGTH(color_names); i++) {
-		if (strcasecmp(color_names[i].name, s) == 0) {
-			*color = color_names[i].color;
+	for (size_t i = 0; i < LENGTH(colors); i++) {
+		if (strcasecmp(colors[i].name, s) == 0) {
+			*color = colors[i].color;
 			return true;
 		}
 	}
@@ -358,7 +359,7 @@ static void ui_arrange(Ui *ui, enum UiLayout layout) {
 static void ui_draw(Ui *ui) {
 	debug("ui-draw\n");
 	UiTerm *tui = (UiTerm*)ui;
-	if (tui->suspended) {
+	if (tui->suspended || tui->minimized) {
 		return;
 	}
 	ui_arrange(ui, tui->layout);
@@ -571,7 +572,7 @@ static UiWin *ui_window_new(Ui *ui, Win *w, enum UiOption options) {
 static void ui_info(Ui *ui, const char *msg, va_list ap) {
 	UiTerm *tui = (UiTerm*)ui;
 	ui_draw_line(tui, 0, tui->height-1, ' ', UI_STYLE_INFO);
-	vsnprintf(tui->info, sizeof(tui->info), msg, ap);
+	vsnprintf(tui->info, sizeof(tui->info)-1, msg, ap);
 }
 
 static void ui_info_hide(Ui *ui) {
@@ -616,7 +617,7 @@ static int ui_decode_key(Ui *ui, char *key, char *buf, size_t len) {
 	// turns input from stdin into <C-V>gUi<F4> ...
 	UiTerm *tui = (UiTerm*)ui;
 	size_t i, n;
-	if (tui->suspended) {
+	if (tui->suspended || tui->minimized) {
 		key[0] = '\0';
 		ui_resume(ui);
 		return len;
@@ -727,12 +728,19 @@ static int ui_encode_key(Ui *ui, char *buf, size_t len, const char *key) {
 
 static void ui_terminal_save(Ui *ui) {
 	UiTerm *tui = (UiTerm*)ui;
+	tui->minimized = true;
 	ui_term_backend_save(tui);
 }
 
 static void ui_terminal_restore(Ui *ui) {
 	UiTerm *tui = (UiTerm*)ui;
+	tui->minimized = false;
 	ui_term_backend_restore(tui);
+}
+
+static bool ui_minimized(Ui *ui) {
+	UiTerm *tui = (UiTerm*)ui;
+	return tui->minimized;
 }
 
 static bool map_put_recursive(Map *m, const char *k, const char *v) {
@@ -898,6 +906,7 @@ Ui *ui_term_new(void) {
 		.decode_key = ui_decode_key,
 		.encode_key = ui_encode_key,
 		.open = ui_open,
+		.minimized = ui_minimized,
 		.terminal_save = ui_terminal_save,
 		.terminal_restore = ui_terminal_restore,
 		.colors = ui_term_backend_colors,

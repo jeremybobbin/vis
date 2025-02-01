@@ -95,6 +95,7 @@ struct Ui {
 	void (*draw)(Ui*);
 	void (*redraw)(Ui*);
 	void (*suspend)(Ui*);
+	bool (*minimized)(Ui*);
 	void (*resume)(Ui*);
 	void (*doupdates)(Ui*, bool);
 	// example:

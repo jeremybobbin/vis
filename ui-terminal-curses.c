@@ -1,6 +1,7 @@
 /* This file is included from ui-terminal.c */
 #include <stdio.h>
 #include <curses.h>
+#include <term.h>
 
 #define ui_term_backend_init ui_curses_init
 #define ui_term_backend_blit ui_curses_blit
@@ -53,6 +54,17 @@ static short color_clobber_idx = 0;
 static uint32_t clobbering_colors[MAX_COLOR_CLOBBER];
 static int change_colors = -1;
 
+static char termbuf[1024];
+static char capabilities[1024];
+static char *table;
+static char *exit_ca_mode1;
+static char *enter_ca_mode1;
+
+
+static int vis_putchar(int c) {
+	return fputc(c, stderr);
+
+}
 /* Calculate r,g,b components of one of the standard upper 240 colors */
 static void get_6cube_rgb(unsigned int n, int *r, int *g, int *b)
 {
@@ -242,14 +254,15 @@ static bool ui_curses_resize(UiTerm *tui, int width, int height) {
 }
 
 static void ui_curses_save(UiTerm *tui) {
+	def_prog_mode();
 	curs_set(1);
 	reset_shell_mode();
 }
 
 static void ui_curses_restore(UiTerm *tui) {
+	tputs(enter_ca_mode1, 1, vis_putchar);
 	reset_prog_mode();
 	wclear(stdscr);
-	curs_set(0);
 }
 
 static int ui_curses_colors(Ui *ui) {
@@ -257,6 +270,14 @@ static int ui_curses_colors(Ui *ui) {
 }
 
 static bool ui_curses_init(UiTerm *tui, FILE *fp) {
+	def_shell_mode();
+	if( tgetent(termbuf, getenv("TERM")) != 1) {
+		perror("No termcap, fail");
+		exit(1);
+	}
+	enter_ca_mode1 = tgetstr("ti", &table);
+	exit_ca_mode1 = tgetstr("te", &table);
+	table = &capabilities[0];
 	if (!newterm(NULL, fp, NULL)) {
 		snprintf(tui->info, sizeof(tui->info), "failed to start curses interface");
 		return false;
@@ -278,17 +299,17 @@ static UiTerm *ui_curses_new(void) {
 static void ui_curses_resume(UiTerm *term) {
 	reset_prog_mode();
 	wclear(stdscr);
-	curs_set(0);
 }
 
 static void ui_curses_suspend(UiTerm *term) {
-	curs_set(1);
+	def_prog_mode();
 	if (change_colors == 1)
 		undo_palette();
-	def_prog_mode();
 	endwin();
+	reset_shell_mode();
 }
 
 static void ui_curses_free(UiTerm *term) {
 	ui_curses_suspend(term);
+	tputs(exit_ca_mode1, 1, vis_putchar);
 }
