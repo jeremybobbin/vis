@@ -78,5 +78,6 @@ const char *string_content(String*);
  * @endrst
  */
 char *string_move(String*);
+int string_read(String*, int fd);
 
 #endif

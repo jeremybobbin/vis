@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <unistd.h>
 
 #include "string.h"
 #include "util.h"
@@ -181,4 +182,12 @@ char *string_move(String *str) {
 	char *data = str->data;
 	string_init(str);
 	return data;
+}
+
+int string_read(String *str, int fd) {
+	int n = read(fd, str->data + str->len, str->size - str->len);
+	if (n >= 0) {
+		str->len += n;
+	}
+	return n;
 }
