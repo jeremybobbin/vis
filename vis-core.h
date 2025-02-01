@@ -233,6 +233,7 @@ struct Vis {
 	int nesting_level;                   /* parsing state to hold keep track of { } nesting level */
 	volatile bool running;               /* exit main loop once this becomes false */
 	int exit_status;                     /* exit status when terminating main loop */
+	sigset_t blocking;                   /* signals we're blocking except during pselect in the main loop */
 	volatile sig_atomic_t interrupted;   /* abort command (SIGINT occurred) */
 	volatile sig_atomic_t sigbus;        /* one of the memory mapped regions became unavailable (SIGBUS) */
 	volatile sig_atomic_t need_resize;   /* need to resize UI (SIGWINCH occurred) */
@@ -250,6 +251,10 @@ struct Vis {
 	Array textobjects;
 	Array bindings;
 	bool ignorecase;                     /* whether to ignore case when searching */
+
+	Array notes[2]; // file descriptors we're listening to
+	Array children; // pids of children processes
+	volatile sig_atomic_t child;         // child died
 };
 
 enum VisEvents {

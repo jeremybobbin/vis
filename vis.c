@@ -658,6 +658,8 @@ void vis_window_close(Win *win) {
 	vis_draw(vis);
 }
 
+void signal_handler(int signum, siginfo_t *siginfo, void *context);
+
 Vis *vis_new(Ui *ui, VisEvent *event, int argc, char **argv) {
 	if (!ui)
 		return NULL;
@@ -707,6 +709,37 @@ Vis *vis_new(Ui *ui, VisEvent *event, int argc, char **argv) {
 			vis_modes[VIS_MODE_INSERT].input = event->mode_insert_input;
 		if (event->mode_replace_input)
 			vis_modes[VIS_MODE_REPLACE].input = event->mode_replace_input;
+	}
+
+	/* install signal handlers */
+	struct sigaction sa;
+	memset(&sa, 0, sizeof sa);
+	sa.sa_flags = SA_SIGINFO;
+	sa.sa_sigaction = signal_handler;
+	sigfillset(&sa.sa_mask);
+	sigemptyset(&vis->blocking);
+
+	/* install signal handlers */
+
+	sigaddset(&vis->blocking, SIGBUS);
+	sigaddset(&vis->blocking, SIGCHLD);
+	sigaddset(&vis->blocking, SIGCONT);
+	sigaddset(&vis->blocking, SIGHUP);
+	sigaddset(&vis->blocking, SIGTERM);
+	sigaddset(&vis->blocking, SIGTSTP);
+	sigaddset(&vis->blocking, SIGWINCH);
+
+	if (sigaction(SIGBUS,      &sa,            NULL) == -1 ||
+	    sigaction(SIGCHLD,     &sa,            NULL) == -1 ||
+	    sigaction(SIGCONT,     &sa,            NULL) == -1 ||
+	    sigaction(SIGHUP,      &sa,            NULL) == -1 ||
+	    sigaction(SIGINT,      &sa,            NULL) == -1 ||
+	    sigaction(SIGPIPE,     &sa,            NULL) == -1 ||
+	    sigaction(SIGTERM,     &sa,            NULL) == -1 ||
+	    sigaction(SIGTSTP,     &sa,            NULL) == -1 ||
+	    sigaction(SIGWINCH,    &sa,            NULL) == -1 ||
+	    sigprocmask(SIG_BLOCK, &vis->blocking, NULL) == -1) {
+		vis_die(vis, "Failed to set signal handler: %s\n", strerror(errno));
 	}
 
 	return vis;
