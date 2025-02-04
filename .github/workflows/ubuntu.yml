@@ -31,7 +31,7 @@ jobs:
           9base \
           libacl1-dev \
           liblua5.3-dev \
-          libncursesw5-dev \
+          libncurses-dev \
           libselinux1-dev \
           libtre-dev \
           lua-lpeg
