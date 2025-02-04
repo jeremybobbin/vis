@@ -63,7 +63,7 @@ LUADIR='$(PREFIX)/share/lua'
 LUAC=cat
 
 help=yes
-curses=yes
+curses=auto
 lua=auto
 lpeg=auto
 tre=auto
@@ -334,8 +334,10 @@ else
 		echo "LDFLAGS_CURSES=$ldflags"
 		CONFIG_STRING="$CONFIG_STRING +curses"
 		UI_TERMINAL_BACKEND=ui-terminal-curses
-	else
+	elif [ "$curses" = "yes" ]; then
 		fail "$0: cannot find libcurses"
+	else
+		curses=no
 	fi
 fi
 
