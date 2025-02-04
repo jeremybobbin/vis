@@ -517,22 +517,22 @@ else
 	fi
 fi
 
-printf "checking for memrchr... " >&2
-
-cat > "$tmp.c" <<- EOF
-#include <string.h>
-
-int main(int argc, char *argv[]) {
-        return !memrchr("\n", '\n', 1);
-}
-EOF
-
-if "$CC" $CFLAGS $CFLAGS_STD "$tmp.c" $LDFLAGS -o "$tmp.o" >/dev/null 2>&1 && "$tmp.o"; then
-	CFLAGS_STD="$CFLAGS_STD -DCONFIG_MEMRCHR"
-	printf "%s\n" "yes" >&2
-else
-	printf "%s\n" "no" >&2
-fi
+#printf "checking for memrchr... " >&2
+#
+#cat > "$tmp.c" <<- EOF
+##include <string.h>
+#
+#int main(int argc, char *argv[]) {
+#        return !memrchr("\n", '\n', 1);
+#}
+#EOF
+#
+#if "$CC" $CFLAGS $CFLAGS_STD "$tmp.c" $LDFLAGS -o "$tmp.o" >/dev/null 2>&1 && "$tmp.o"; then
+#	CFLAGS_STD="$CFLAGS_STD -DCONFIG_MEMRCHR"
+#	printf "%s\n" "yes" >&2
+#else
+#	printf "%s\n" "no" >&2
+#fi
 
 if test "$help" = "yes"; then
 	CFLAGS_STD="$CFLAGS_STD -DCONFIG_HELP"
