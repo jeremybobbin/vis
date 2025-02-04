@@ -467,7 +467,7 @@ else
 		echo "LDFLAGS_TRE=$ldflags"
 		CONFIG_STRING="$CONFIG_STRING +tre"
 		REGEX=text-regex-tre
-	else
+	elif [ "$tre" = yes ]; then
 		fail "$0: cannot find libtre"
 	fi
 fi
